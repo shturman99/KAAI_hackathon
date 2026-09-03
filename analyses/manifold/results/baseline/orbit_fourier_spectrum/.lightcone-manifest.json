@@ -1,0 +1,22 @@
+{
+  "code_version": "sha256:d49050050a378ca59178cda3bfab8f3421812f783072091f1ab8dfe177ee4d18",
+  "container_image": "Containerfile",
+  "data_version": "sha256:82ffcc36ace069f0f49b9290c8f8d5dcc8bed41cf3cfd1e8c0ef5bc96db53800",
+  "decisions": {
+    "embedding_preprocessing": "standardize"
+  },
+  "finished_at": 1788448408.7161179,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "rotation_orbit_embeddings": "sha256:c7e2ab20e4dafe2706821e0db1abcbdc17c5a307b060b95a96bd1bad9fbc6c3f"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "orbit_fourier_spectrum",
+  "recipe": "python src/manifold/orbit_spectrum.py --orbits {inputs.rotation_orbit_embeddings} --embedding-preprocessing {decisions.embedding_preprocessing} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

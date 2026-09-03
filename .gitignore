@@ -1,0 +1,32 @@
+# Provided data kit — 9.2 GB, read-only input, not ours to redistribute.
+# Download it from the hackathon organisers and place it here.
+KAAI-2026-Hackathon/
+
+# Environments and caches
+__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/
+.DS_Store
+
+# lightcone-cli generated / transient
+.lightcone/Snakefile
+.lightcone/snakefile-config.json
+.snakemake/
+.snakemake.legacy/
+.lc-*.log
+/results/
+
+# NOTE: analyses/*/results/ IS tracked on purpose. It carries the materialized
+# outputs and their .lightcone-manifest.json provenance (35 MB, of which 33 MB
+# is rotation_orbit_embeddings.npy), so every downstream number can be checked
+# and re-derived without a GPU.
+
+# MyST build output
+_build/
+
+# Agent tooling config, not part of the submission
+.claude/
+.vscode/
+.snakemake
+.lc-chain*.sh

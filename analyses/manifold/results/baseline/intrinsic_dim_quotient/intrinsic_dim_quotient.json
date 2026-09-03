@@ -1,0 +1,53 @@
+{
+  "ambient_dim": 1024,
+  "caveat": "Below ID ~20 the estimate stays close to ground truth at finite sample size, so this is reported as an estimate.",
+  "conditioned_on": "anchor cloud",
+  "diagnostic": {
+    "curve": [
+      {
+        "block_size": 512,
+        "id_mean": 10.307813621348688,
+        "id_std": 0.0,
+        "n_blocks": 1
+      },
+      {
+        "block_size": 256,
+        "id_mean": 9.633328148835425,
+        "id_std": 0.31443976806145724,
+        "n_blocks": 2
+      },
+      {
+        "block_size": 128,
+        "id_mean": 9.340744311999364,
+        "id_std": 0.9927458062893202,
+        "n_blocks": 4
+      },
+      {
+        "block_size": 64,
+        "id_mean": 9.172947019843967,
+        "id_std": 1.8370382678645223,
+        "n_blocks": 8
+      }
+    ],
+    "full_sample_id": 10.307813621348688,
+    "mode": "block_analysis",
+    "n_stable_blocks": 3,
+    "plateau_tolerance": 0.1
+  },
+  "embedding_preprocessing": "standardize",
+  "id": 9.76062869406116,
+  "id_estimator": "twonn",
+  "id_scale_selection": "block_analysis",
+  "is_lower_bound": false,
+  "mode": "quotient",
+  "n_anchor_rows": 8058,
+  "n_points": 512,
+  "quotient": {
+    "applies_to_full_cloud": false,
+    "dim": 1024,
+    "operator": "orbit_mean"
+  },
+  "quotient_operator": "orbit_mean",
+  "real_quality_cuts": "standard",
+  "sampling_assumption_violated": false
+}

@@ -1,0 +1,372 @@
+version: "0.0.14"
+# ------------------------------------------------------------------
+# Goal 3 — real vs simulated, on shared ground
+# ------------------------------------------------------------------
+name: "Real-simulated discriminability"
+description: >-
+  Asks how much of the model's ability to tell a real galaxy from an
+  ASTRID one survives once the easy giveaways are removed. ASTRID images
+  carry no PSF and no noise, so a naive classifier is a noise detector,
+  not a physics result. This stage measures discriminability three times
+  — raw, after matching the samples in mass and redshift, and after
+  projecting out the instrument subspace recovered by the nuisance probes
+  — and reports what is left.
+
+inputs:
+  - id: anchor_embeddings
+    from: ../anchor_embeddings
+  - id: anchor_catalogue
+    from: ../anchor_catalogue
+  - id: astrid_embeddings
+    from: ../astrid_embeddings
+  - id: astrid_catalogue
+    from: ../astrid_catalogue
+  - id: nuisance_directions
+    from: ../probes.nuisance_probe_r2
+
+decisions:
+  embedding_preprocessing: { from: ../embedding_preprocessing }
+  eval_split:              { from: ../eval_split }
+  real_quality_cuts:       { from: ../real_quality_cuts }
+  target_transform:        { from: ../target_transform }
+  probe_model:             { from: ../probe_model }
+  probe_regularization:    { from: ../probe_regularization }
+
+  sim_quality_cuts: { from: ../sim_quality_cuts }
+
+  domain_matching:
+    label: "Sample matching variables"
+    tags: [selection]
+    rationale: >-
+      The real and simulated samples were drawn by different procedures
+      and do not share a mass or redshift distribution. Without matching,
+      a classifier can reach near-perfect separation purely by noticing
+      that simulated galaxies sit at different masses, which says nothing
+      about whether the model represents them differently.
+    default: mass_redshift
+    options:
+      none:
+        label: "No matching"
+        description: "Used only for the raw reference measurement."
+      mass_only:
+        label: "Match on stellar mass"
+        description: "Removes the mass difference; leaves redshift free."
+      mass_redshift:
+        label: "Match on mass and redshift"
+        description: >-
+          Both. The two variables that most directly control a galaxy's
+          apparent size and brightness in the cutout.
+        insights: [aion_selection_function_recalibration_caveat]
+      mass_redshift_size:
+        label: "Match on mass, redshift and apparent size"
+        description: >-
+          Adds an apparent-size match. The most conservative option;
+          shrinks the matched sample considerably and may leave too few
+          galaxies for a stable AUC.
+
+  matching_method:
+    label: "Matching method"
+    tags: [stats]
+    rationale: >-
+      How the match is enforced determines both the effective sample size
+      and how completely the distributions are equalised. Reweighting
+      keeps every galaxy but can produce extreme weights; pairing
+      discards galaxies but yields an exactly balanced set.
+    default: nearest_neighbour_pairs
+    options:
+      histogram_reweight:
+        label: "Histogram reweighting"
+        description: >-
+          Bin the matching variables and reweight so the marginals agree.
+          Retains all rows; effective sample size can be far below the
+          nominal count.
+      nearest_neighbour_pairs:
+        label: "Nearest-neighbour pairing"
+        description: >-
+          Pair each simulated galaxy with the closest unused real galaxy
+          in the matching variables, discarding unmatched rows. Exactly
+          balanced, and the resulting AUC needs no weighting to interpret.
+      propensity_score:
+        label: "Propensity-score matching"
+        description: >-
+          Match on the fitted probability of being simulated. Handles
+          several matching variables at once, but only equalises the
+          score, not the variables themselves.
+
+  classifier_model:
+    label: "Discriminator family"
+    tags: [method]
+    rationale: >-
+      A linear classifier's AUC is a statement about linear separability
+      of the two domains in embedding space; a flexible one bounds total
+      discriminability however it is encoded. These are different claims
+      and the reported number means different things under each, so the
+      choice must travel with the result.
+    default: logistic
+    options:
+      logistic:
+        label: "Logistic regression"
+        description: >-
+          Linear, regularised. Measures whether a hyperplane separates
+          real from simulated, and yields a direction that can be
+          inspected against the nuisance subspace.
+      gradient_boosting:
+        label: "Gradient-boosted trees"
+        description: >-
+          Nonlinear and axis-aligned. Usually the strongest separator
+          here, and therefore the tightest upper bound on the gap.
+      mlp:
+        label: "Small MLP"
+        description: "Nonlinear and rotation-agnostic in feature space."
+
+  nuisance_projection:
+    label: "Instrument subspace removal"
+    tags: [method]
+    rationale: >-
+      This is the step that converts the measurement from a noise
+      detector into a physics claim, and it is also the step most likely
+      to be over-claimed. Projecting out a subspace removes the component
+      of the instrument signature that is linearly captured by the
+      nuisance probes; it does not remove instrument signature that is
+      nonlinearly encoded, and the residual AUC must be reported with
+      that limit attached.
+    default: probe_weight_span
+    options:
+      none:
+        label: "No projection"
+        description: "Used only for the raw and matched reference measurements."
+      probe_weight_span:
+        label: "Project out probe weight span"
+        description: >-
+          Remove the span of the ridge weight vectors fitted by the
+          nuisance probes. Direct, and tied to a measured quantity rather
+          than an assumed one.
+        insights: [aion_survey_invariant_transfer, aion_pretraining_is_entirely_real_observational_data]
+      cca_subspace:
+        label: "Project out CCA subspace"
+        description: >-
+          Remove the embedding directions most correlated with the
+          nuisance variables under canonical correlation analysis.
+          Captures shared structure the independent per-variable probes
+          may miss.
+
+  nuisance_subspace_dim:
+    label: "Projected subspace dimension"
+    tags: [stats]
+    rationale: >-
+      Sets how much of the embedding is discarded before the residual
+      measurement. Too few directions and instrument signature survives,
+      inflating the apparent physics gap; too many and real galaxy
+      information is destroyed along with it, deflating it. The residual
+      AUC should be reported as a function of this rather than at a
+      single value if the two ends disagree.
+    default: d10
+    options:
+      d5:  { label: "5 directions", description: "Conservative; likely leaves instrument signature behind." }
+      d10: { label: "10 directions", description: "The working choice." }
+      d20: { label: "20 directions", description: "Aggressive; begins to remove galaxy information along with instrument." }
+
+  sim_mass_column:
+    label: "Simulated stellar mass definition"
+    tags: [selection]
+    rationale: >-
+      ASTRID reports both a total bound stellar mass and an aperture mass
+      measured inside twice the half-mass radius. Real catalogue masses
+      come from SED fitting within a photometric aperture, so the
+      aperture definition is the closer analogue; the data
+      documentation names it the primary mass column. Using total mass
+      instead would introduce a systematic offset that matching would
+      then propagate into every downstream number.
+    default: log_mstar_aper
+    options:
+      log_mstar_aper:
+        label: "Aperture mass"
+        description: >-
+          logMstarAper, measured inside twice the half-mass radius.
+          The documented primary column and the closer match to how real
+          masses are measured.
+      log_mstar_total:
+        label: "Total bound mass"
+        description: >-
+          logMstarTotal. Physically cleaner in the simulation's own
+          terms, but not what an observer measures.
+
+  sim_sfr_column:
+    label: "Simulated SFR averaging timescale"
+    tags: [selection]
+    rationale: >-
+      ASTRID gives star formation rates averaged over 10 Myr and over
+      100 Myr. These differ substantially for bursty galaxies, and the
+      real catalogue's SED-fitted avgSfr reflects a longer effective
+      timescale, so the 100 Myr column is the fairer comparison. Using
+      the 10 Myr column would make probe transfer look worse for a
+      reason that has nothing to do with the embedding.
+    default: sfr100
+    options:
+      sfr100:
+        label: "100 Myr average"
+        description: >-
+          Closer to the timescale SED-fitted star formation rates are
+          actually sensitive to.
+      sfr10:
+        label: "10 Myr average"
+        description: >-
+          More nearly instantaneous, and much noisier for low-mass
+          galaxies where star formation is bursty.
+
+prior_insights:
+
+  aion_survey_invariant_transfer:
+    id: aion_survey_invariant_transfer
+    label: "Embeddings absorb cross-instrument shift"
+    claim: "A linear morphology classifier trained only on Legacy Survey embeddings transfers zero-shot to Hyper Suprime-Cam embeddings with almost no accuracy loss, despite roughly a factor of two difference in depth, different filter sets and a different pixel scale. The frozen encoder therefore already absorbs substantial real-to-real instrument shift, which raises the bar for attributing any residual real-versus-simulated separation to instrument effects."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Real-survey to real-survey transfer of a linear morphology probe. Says nothing directly about simulated imaging, which differs from real imaging in kind, not just in depth and sampling."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "essentially matching its performance on the native Legacy Survey domain."
+        location: { value: "page=21", page: 21 }
+
+  aion_pretraining_is_entirely_real_observational_data:
+    id: aion_pretraining_is_entirely_real_observational_data
+    label: "No simulated data in pretraining"
+    claim: "AION-1 is pretrained exclusively on real observational data from five surveys, with no pretraining or evaluation on simulated or synthetic galaxy imagery anywhere in the paper. There is therefore no precedent in the model's own documentation for how the frozen encoder behaves on simulated galaxies, which is the regime this sub-analysis operates in."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "for galaxy images; DESI"
+        location: { value: "page=3", page: 3 }
+
+  aion_selection_function_recalibration_caveat:
+    id: aion_selection_function_recalibration_caveat
+    label: "Inherited selection functions need recalibration"
+    claim: "The authors caution that AION-1 inherits the selection functions of its real-survey pretraining data, including magnitude and quality cuts, footprint choices and cross-match decisions, and that these may bias downstream predictions unless the task-specific head is recalibrated on data representative of the target distribution. Applying a probe trained on real galaxies to simulated ones without matching the distributions is exactly the uncontrolled case this warns about."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [selection]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "AION-1 inherits the selection functions of its pre-training data"
+        location: { value: "page=22", page: 22 }
+
+outputs:
+  - id: raw_discriminability
+    type: metric
+    format: json
+    label: "Raw real-vs-sim AUC"
+    description: >-
+      Held-out AUC of a real-vs-simulated classifier on the shipped
+      embeddings, no controls. Expected to be near 1. Reported as the
+      reference point the later numbers are measured against, not as a
+      finding.
+    inputs: [anchor_embeddings, anchor_catalogue, astrid_embeddings, astrid_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, sim_quality_cuts, eval_split, classifier_model]
+    recipe:
+      command: >-
+        python src/domain_gap/discriminate.py --real {inputs.anchor_embeddings}
+        --real-cat {inputs.anchor_catalogue} --sim {inputs.astrid_embeddings}
+        --sim-cat {inputs.astrid_catalogue} --stage raw --embedding-preprocessing
+        {decisions.embedding_preprocessing} --real-quality-cuts
+        {decisions.real_quality_cuts} --sim-quality-cuts
+        {decisions.sim_quality_cuts} --eval-split {decisions.eval_split}
+        --classifier-model {decisions.classifier_model} --out {output}
+
+  - id: matched_discriminability
+    type: metric
+    format: json
+    label: "Matched real-vs-sim AUC"
+    description: >-
+      The same AUC after the real and simulated samples are matched in
+      stellar mass and redshift, so the classifier cannot win by
+      exploiting a population difference.
+    inputs: [anchor_embeddings, anchor_catalogue, astrid_embeddings, astrid_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, sim_quality_cuts, eval_split, classifier_model, domain_matching, matching_method, sim_mass_column]
+    recipe:
+      command: >-
+        python src/domain_gap/discriminate.py --real {inputs.anchor_embeddings}
+        --real-cat {inputs.anchor_catalogue} --sim {inputs.astrid_embeddings}
+        --sim-cat {inputs.astrid_catalogue} --stage matched
+        --embedding-preprocessing {decisions.embedding_preprocessing}
+        --real-quality-cuts {decisions.real_quality_cuts} --sim-quality-cuts
+        {decisions.sim_quality_cuts} --eval-split {decisions.eval_split}
+        --classifier-model {decisions.classifier_model} --domain-matching
+        {decisions.domain_matching} --matching-method {decisions.matching_method}
+        --sim-mass-column {decisions.sim_mass_column} --out {output}
+
+  - id: residual_discriminability
+    type: metric
+    format: json
+    label: "Residual AUC after nuisance projection"
+    description: >-
+      AUC on matched samples after the instrument subspace spanned by the
+      nuisance probe directions is projected out of both embeddings. The
+      headline number for goal 3: discriminability that cannot be
+      attributed to PSF, depth or extinction, and so is a claim about
+      the galaxies themselves. Reported with the caveat that projection
+      removes an instrument subspace, not the whole instrument signature.
+    inputs: [anchor_embeddings, anchor_catalogue, astrid_embeddings, astrid_catalogue, nuisance_directions]
+    decisions: [embedding_preprocessing, real_quality_cuts, sim_quality_cuts, eval_split, classifier_model, domain_matching, matching_method, sim_mass_column, nuisance_projection, nuisance_subspace_dim]
+    recipe:
+      command: >-
+        python src/domain_gap/discriminate.py --real {inputs.anchor_embeddings}
+        --real-cat {inputs.anchor_catalogue} --sim {inputs.astrid_embeddings}
+        --sim-cat {inputs.astrid_catalogue} --nuisance
+        {inputs.nuisance_directions} --stage residual --embedding-preprocessing
+        {decisions.embedding_preprocessing} --real-quality-cuts
+        {decisions.real_quality_cuts} --sim-quality-cuts
+        {decisions.sim_quality_cuts} --eval-split {decisions.eval_split}
+        --classifier-model {decisions.classifier_model} --domain-matching
+        {decisions.domain_matching} --matching-method {decisions.matching_method}
+        --sim-mass-column {decisions.sim_mass_column} --nuisance-projection
+        {decisions.nuisance_projection} --nuisance-subspace-dim
+        {decisions.nuisance_subspace_dim} --out {output}
+
+  - id: probe_transfer_r2
+    type: table
+    format: csv
+    label: "Probe transfer to ASTRID"
+    description: >-
+      A probe trained on real galaxies applied unchanged to simulated
+      ones, scored against ASTRID's exact particle-derived properties.
+      A complementary read on the gap: a probe that transfers is reading
+      something both domains share.
+    inputs: [anchor_embeddings, anchor_catalogue, astrid_embeddings, astrid_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, sim_quality_cuts, eval_split, probe_model, probe_regularization, target_transform, sim_mass_column, sim_sfr_column]
+    recipe:
+      command: >-
+        python src/domain_gap/probe_transfer.py --real {inputs.anchor_embeddings}
+        --real-cat {inputs.anchor_catalogue} --sim {inputs.astrid_embeddings}
+        --sim-cat {inputs.astrid_catalogue} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --real-quality-cuts
+        {decisions.real_quality_cuts} --sim-quality-cuts
+        {decisions.sim_quality_cuts} --eval-split {decisions.eval_split}
+        --probe-model {decisions.probe_model} --probe-regularization
+        {decisions.probe_regularization} --target-transform
+        {decisions.target_transform} --sim-mass-column {decisions.sim_mass_column}
+        --sim-sfr-column {decisions.sim_sfr_column} --out {output}
+
+  - id: domain_gap_plot
+    type: figure
+    format: pdf
+    label: "Closing the gap"
+    description: >-
+      AUC across the three control stages, with the probe-transfer
+      results alongside, showing how much of the initial separation each
+      control accounts for.
+    inputs: [raw_discriminability, matched_discriminability, residual_discriminability, probe_transfer_r2]
+    recipe:
+      command: >-
+        python src/domain_gap/plot_gap.py --inputs {inputs} --out {output}

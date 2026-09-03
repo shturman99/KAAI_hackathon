@@ -1,0 +1,27 @@
+{
+  "code_version": "sha256:8fe025199dfeb2c0622b02122e9fb5ff4e75da2dfbd9e87c7978ebbb7192b203",
+  "container_image": "Containerfile",
+  "data_version": "sha256:7f6c472e85e086a0a12f8b37e6d9dc4843bb1bf8d35f7e9d5c9af2ddd82f04c7",
+  "decisions": {
+    "eval_split": "kfold_5",
+    "photometry_baseline_features": "mags_colours",
+    "probe_model": "ridge",
+    "probe_regularization": "cv_grid",
+    "real_quality_cuts": "standard",
+    "target_transform": "log_ssfr"
+  },
+  "finished_at": 1788376751.7267177,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "probe_r2_photometry_baseline",
+  "recipe": "python src/probes/probe_photometry.py --cat {inputs.anchor_catalogue} --eval-split {decisions.eval_split} --real-quality-cuts {decisions.real_quality_cuts} --target-transform {decisions.target_transform} --probe-model {decisions.probe_model} --probe-regularization {decisions.probe_regularization} --photometry-baseline-features {decisions.photometry_baseline_features} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

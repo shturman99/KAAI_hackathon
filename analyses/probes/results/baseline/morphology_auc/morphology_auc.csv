@@ -1,0 +1,7 @@
+label,metric,features,n_features,n_rows,positive_rate,threshold,score_mean,score_std,n_folds,morphology_label_form,probe_model,eval_split,embedding_preprocessing
+spiralArmsFraction,auc,embedding,1024,10000,0.5,0.8812504708766937,0.7859189999999999,0.0067977497747416646,5,threshold_median,ridge,kfold_5,standardize
+barStrongFraction,auc,embedding,1024,10000,0.5,0.10205938294529915,0.8931424,0.0021727066622072725,5,threshold_median,ridge,kfold_5,standardize
+barWeakFraction,auc,embedding,1024,10000,0.5,0.32012705504894257,0.7994204,0.005928678962467125,5,threshold_median,ridge,kfold_5,standardize
+edgeOnFraction,auc,embedding,1024,10000,0.5,0.03446687571704388,0.9125762,0.004803211858746167,5,threshold_median,ridge,kfold_5,standardize
+bulgeDominantFraction,auc,embedding,1024,10000,0.5,0.0113826934248209,0.9357050000000001,0.007135892600088663,5,threshold_median,ridge,kfold_5,standardize
+mergerFraction,auc,embedding,1024,10000,0.5,0.022267799824476242,0.9033542000000001,0.006975343071132781,5,threshold_median,ridge,kfold_5,standardize

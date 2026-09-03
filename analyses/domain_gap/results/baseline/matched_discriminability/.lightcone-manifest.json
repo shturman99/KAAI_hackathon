@@ -1,0 +1,32 @@
+{
+  "code_version": "sha256:93994b22e1cda6791a75942d1bc172896b8a58f7fe587e8522657ee32375a2de",
+  "container_image": "Containerfile",
+  "data_version": "sha256:65aafb91a177d5d1c773deb94f74d35daf3b311e34bda6cbf81654592fe6a107",
+  "decisions": {
+    "classifier_model": "logistic",
+    "domain_matching": "mass_redshift",
+    "embedding_preprocessing": "standardize",
+    "eval_split": "kfold_5",
+    "matching_method": "nearest_neighbour_pairs",
+    "real_quality_cuts": "standard",
+    "sim_mass_column": "log_mstar_aper",
+    "sim_quality_cuts": "pathology_and_encl"
+  },
+  "finished_at": 1788376959.1422741,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128",
+    "astrid_catalogue": "mtime-size:1788300134000000000-1145621",
+    "astrid_embeddings": "mtime-size:1788304746000000000-40960128"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "matched_discriminability",
+  "recipe": "python src/domain_gap/discriminate.py --real {inputs.anchor_embeddings} --real-cat {inputs.anchor_catalogue} --sim {inputs.astrid_embeddings} --sim-cat {inputs.astrid_catalogue} --stage matched --embedding-preprocessing {decisions.embedding_preprocessing} --real-quality-cuts {decisions.real_quality_cuts} --sim-quality-cuts {decisions.sim_quality_cuts} --eval-split {decisions.eval_split} --classifier-model {decisions.classifier_model} --domain-matching {decisions.domain_matching} --matching-method {decisions.matching_method} --sim-mass-column {decisions.sim_mass_column} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

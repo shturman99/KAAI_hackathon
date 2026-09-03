@@ -1,0 +1,11 @@
+id: baseline
+description: Default configuration using standard practices
+decisions:
+  sim_quality_cuts: pathology_and_encl
+  domain_matching: mass_redshift
+  matching_method: nearest_neighbour_pairs
+  classifier_model: logistic
+  nuisance_projection: probe_weight_span
+  nuisance_subspace_dim: d10
+  sim_mass_column: log_mstar_aper
+  sim_sfr_column: sfr100

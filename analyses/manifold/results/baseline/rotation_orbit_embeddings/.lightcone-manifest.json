@@ -1,0 +1,27 @@
+{
+  "code_version": "sha256:94b70a61838d0e7bcb487c5e5e23e66caa63fb61ade906ce18c71255798f2bb4",
+  "container_image": "Containerfile",
+  "data_version": "sha256:c7e2ab20e4dafe2706821e0db1abcbdc17c5a307b060b95a96bd1bad9fbc6c3f",
+  "decisions": {
+    "angle_grid": "a16",
+    "orbit_reference_frame": "sky_frame",
+    "orbit_subsample": "n512",
+    "real_quality_cuts": "standard",
+    "rotation_interpolation": "bicubic"
+  },
+  "finished_at": 1788368255.312972,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_images": "mtime-size:1788278546000000000-4096000128"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "rotation_orbit_embeddings",
+  "recipe": "python src/manifold/encode_orbits.py --images {inputs.anchor_images} --cat {inputs.anchor_catalogue} --real-quality-cuts {decisions.real_quality_cuts} --orbit-subsample {decisions.orbit_subsample} --angle-grid {decisions.angle_grid} --rotation-interpolation {decisions.rotation_interpolation} --orbit-reference-frame {decisions.orbit_reference_frame} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

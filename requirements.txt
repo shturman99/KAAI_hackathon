@@ -1,0 +1,31 @@
+# Environment for aion-embedding-structure.
+#
+# Pinned to the versions the shipped AION-1 embeddings were produced under
+# (KAAI-2026-Hackathon/setup/requirements.txt), because manifold.
+# rotation_orbit_embeddings re-encodes images with the same frozen model and
+# the vectors have to stay comparable. numpy is held below 2 for that reason.
+
+# --- core numerics ---
+numpy==1.26.4
+scipy==1.17.0
+pandas==2.1.4
+scikit-learn==1.8.0
+pyarrow==23.0.0
+
+# --- the frozen encoder, for the rotation-orbit step ---
+torch==2.10.0
+polymathic-aion==0.0.2
+huggingface-hub==1.7.2
+# Not in the hackathon's own requirements, but huggingface-hub's
+# from_pretrained path dereferences safetensors.__version__ unconditionally
+# and raises NameError without it.
+safetensors==0.8.0
+requests==2.32.5
+tqdm==4.67.3
+
+# --- figures ---
+matplotlib==3.10.9
+
+# --- execution stack: lets this image run rules on any backend,
+#     including as a Dask Gateway worker pod. ---
+lightcone-cli==0.4.2

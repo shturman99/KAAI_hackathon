@@ -1,0 +1,23 @@
+{
+  "code_version": "sha256:af1500be37d0aaed8717bf16d35257de4ea2aeebaa3dfed801a53721e1ff6016",
+  "container_image": "Containerfile",
+  "data_version": "sha256:bdd1a22d40e2d3fa9caf342ecfd4b710ef7b6b1fc7a87cdaaa3e296a6d5c2295",
+  "decisions": {},
+  "finished_at": 1788376971.130348,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "matched_discriminability": "sha256:65aafb91a177d5d1c773deb94f74d35daf3b311e34bda6cbf81654592fe6a107",
+    "probe_transfer_r2": "sha256:f02a44d8d627fdc07d296449097ae26227278820ac70aba03cef6f030366d38e",
+    "raw_discriminability": "sha256:cb6c0f0bed21e9767efb8eccaa11c38ad1f66b7d3f1ddc7201921e8cf24f9ec8",
+    "residual_discriminability": "sha256:fc24e65cebf3cb96b882369f7cc3663225156e5c142ce44447d11a93297047ce"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "domain_gap_plot",
+  "recipe": "python src/domain_gap/plot_gap.py --inputs {inputs} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

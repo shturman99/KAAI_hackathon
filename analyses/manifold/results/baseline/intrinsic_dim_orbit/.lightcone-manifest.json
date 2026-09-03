@@ -1,0 +1,24 @@
+{
+  "code_version": "sha256:6228c48405345e504abc29171eef4010eda4b9cc400b34e294d0c15eb5c4ec81",
+  "container_image": "Containerfile",
+  "data_version": "sha256:67efed08d9de2c48ccc8438ea2b8bd8725629921c2eb89364070e245a9708b92",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "id_estimator": "twonn",
+    "id_scale_selection": "block_analysis"
+  },
+  "finished_at": 1788374481.2348866,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "rotation_orbit_embeddings": "sha256:c7e2ab20e4dafe2706821e0db1abcbdc17c5a307b060b95a96bd1bad9fbc6c3f"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "intrinsic_dim_orbit",
+  "recipe": "python src/manifold/intrinsic_dim.py --orbits {inputs.rotation_orbit_embeddings} --mode orbit --embedding-preprocessing {decisions.embedding_preprocessing} --id-estimator {decisions.id_estimator} --id-scale-selection {decisions.id_scale_selection} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

@@ -1,0 +1,29 @@
+{
+  "code_version": "sha256:73b15e9e2ea916f09c12e47fe6bb9157dfa2a576de6394b3f0a4715f31705820",
+  "container_image": "Containerfile",
+  "data_version": "sha256:cb6c0f0bed21e9767efb8eccaa11c38ad1f66b7d3f1ddc7201921e8cf24f9ec8",
+  "decisions": {
+    "classifier_model": "logistic",
+    "embedding_preprocessing": "standardize",
+    "eval_split": "kfold_5",
+    "real_quality_cuts": "standard",
+    "sim_quality_cuts": "pathology_and_encl"
+  },
+  "finished_at": 1788376802.1461315,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128",
+    "astrid_catalogue": "mtime-size:1788300134000000000-1145621",
+    "astrid_embeddings": "mtime-size:1788304746000000000-40960128"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "raw_discriminability",
+  "recipe": "python src/domain_gap/discriminate.py --real {inputs.anchor_embeddings} --real-cat {inputs.anchor_catalogue} --sim {inputs.astrid_embeddings} --sim-cat {inputs.astrid_catalogue} --stage raw --embedding-preprocessing {decisions.embedding_preprocessing} --real-quality-cuts {decisions.real_quality_cuts} --sim-quality-cuts {decisions.sim_quality_cuts} --eval-split {decisions.eval_split} --classifier-model {decisions.classifier_model} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

@@ -1,0 +1,58 @@
+{
+  "ambient_dim": 1024,
+  "caveat": "Below ID ~20 the estimate stays close to ground truth at finite sample size, so this is reported as an estimate.",
+  "diagnostic": {
+    "curve": [
+      {
+        "block_size": 8058,
+        "id_mean": 14.623412909632693,
+        "id_std": 0.0,
+        "n_blocks": 1
+      },
+      {
+        "block_size": 4029,
+        "id_mean": 13.977518420251723,
+        "id_std": 0.1773990655587303,
+        "n_blocks": 2
+      },
+      {
+        "block_size": 2014,
+        "id_mean": 13.50946888279795,
+        "id_std": 0.2531432069187224,
+        "n_blocks": 4
+      },
+      {
+        "block_size": 1007,
+        "id_mean": 12.93469966210705,
+        "id_std": 0.3705907470272607,
+        "n_blocks": 8
+      },
+      {
+        "block_size": 503,
+        "id_mean": 12.47507407153165,
+        "id_std": 0.5814564489306405,
+        "n_blocks": 16
+      },
+      {
+        "block_size": 251,
+        "id_mean": 11.98544742575114,
+        "id_std": 0.8066629295873144,
+        "n_blocks": 32
+      }
+    ],
+    "full_sample_id": 14.623412909632693,
+    "mode": "block_analysis",
+    "n_stable_blocks": 3,
+    "plateau_tolerance": 0.1
+  },
+  "embedding_preprocessing": "standardize",
+  "id": 14.036800070894122,
+  "id_estimator": "twonn",
+  "id_scale_selection": "block_analysis",
+  "is_lower_bound": false,
+  "mode": "full",
+  "n_anchor_rows": 8058,
+  "n_points": 8058,
+  "real_quality_cuts": "standard",
+  "sampling_assumption_violated": false
+}

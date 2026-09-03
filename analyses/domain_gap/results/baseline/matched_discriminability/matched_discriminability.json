@@ -1,0 +1,37 @@
+{
+  "auc_folds": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "auc_mean": 1.0,
+  "auc_std": 0.0,
+  "classifier_model": "logistic",
+  "classifier_penalty": "fixed (C=1.0); probe_regularization is not a declared decision for this output",
+  "domain_matching": "mass_redshift",
+  "embedding_preprocessing": "standardize",
+  "eval_split": "kfold_5",
+  "limitation": "Simulated images were not degraded to match the real PSF and noise; the confound is controlled by distribution matching plus projection of the linearly-captured instrument subspace only. Residual separation may still contain instrument signature that is nonlinearly encoded.",
+  "matching": {
+    "max_neighbours_searched": 50,
+    "mean_pair_distance_sd_units": 0.04577927452618938,
+    "method": "nearest_neighbour_pairs",
+    "n_pairs": 4318
+  },
+  "matching_variables": [
+    "log_mstar",
+    "redshift"
+  ],
+  "n_folds": 5,
+  "n_real_after_cuts": 8058,
+  "n_real_used": 4318,
+  "n_sim_after_cuts": 9054,
+  "n_sim_used": 4318,
+  "nuisance_projection": "none",
+  "real_quality_cuts": "standard",
+  "sim_mass_column": "log_mstar_aper",
+  "sim_quality_cuts": "pathology_and_encl",
+  "stage": "matched"
+}

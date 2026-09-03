@@ -1,0 +1,20 @@
+{
+  "code_version": "sha256:6197cb0eb8a0c0bcd9a551c3867ffda1451623d264d536ca8dedb6c75ff5304f",
+  "container_image": "Containerfile",
+  "data_version": "sha256:1006812dac75a709b3eb6aba4565ba036d439383165088e6b8efde0f10c117ef",
+  "decisions": {},
+  "finished_at": 1788379831.4035938,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "symbolic_complexity_curve": "sha256:7bc4db0497b861d4c0872dea3d2e5edb5d961f1a72354ea4bef89d1be7ffe539"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "symbolic_complexity_plot",
+  "recipe": "python src/manifold/plot_complexity_curve.py --inputs {inputs} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

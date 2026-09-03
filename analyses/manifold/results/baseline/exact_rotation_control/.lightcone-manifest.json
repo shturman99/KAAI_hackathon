@@ -1,0 +1,23 @@
+{
+  "code_version": "sha256:0f78c39b14d89ecb342ccf562ba847004266c2dab2d78cb534fa41ec75fd9370",
+  "container_image": "Containerfile",
+  "data_version": "sha256:f7754014068d48a197920f1b4ae3bf891ae0900d93bb6844e569a4fe68b1eb26",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "rotation_interpolation": "bicubic"
+  },
+  "finished_at": 1788450573.8893077,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "rotation_orbit_embeddings": "sha256:c7e2ab20e4dafe2706821e0db1abcbdc17c5a307b060b95a96bd1bad9fbc6c3f"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "exact_rotation_control",
+  "recipe": "python src/manifold/exact_rotation_control.py --orbits {inputs.rotation_orbit_embeddings} --embedding-preprocessing {decisions.embedding_preprocessing} --rotation-interpolation {decisions.rotation_interpolation} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

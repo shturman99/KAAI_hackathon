@@ -1,0 +1,30 @@
+{
+  "code_version": "sha256:9a7df19c60a68a61a94ef3b60afc97e126459f3245c4b40fe5ba2976bada46aa",
+  "container_image": "Containerfile",
+  "data_version": "sha256:3582bd562db1927e3854feccad139b17e411d124e52c6348e177d273e9f6e386",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "eval_split": "kfold_5",
+    "probe_model": "ridge",
+    "probe_regularization": "cv_grid",
+    "real_quality_cuts": "standard",
+    "sr_validation": "holdout_refit",
+    "target_transform": "log_ssfr"
+  },
+  "finished_at": 1788377224.7245002,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128",
+    "symbolic_expressions": "sha256:16cac137857220488b8c94c217fe9983ee103a89af2bb5c6b1cc79b344cf1a6a"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "symbolic_vs_linear_r2",
+  "recipe": "python src/manifold/symbolic_vs_linear.py --expr {inputs.symbolic_expressions} --emb {inputs.anchor_embeddings} --cat {inputs.anchor_catalogue} --embedding-preprocessing {decisions.embedding_preprocessing} --real-quality-cuts {decisions.real_quality_cuts} --eval-split {decisions.eval_split} --target-transform {decisions.target_transform} --probe-model {decisions.probe_model} --probe-regularization {decisions.probe_regularization} --sr-validation {decisions.sr_validation} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

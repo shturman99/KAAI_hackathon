@@ -1,0 +1,475 @@
+# ASTRA Analysis Specification
+
+version: "0.0.14"
+name: "aion-embedding-structure"
+container: Containerfile
+description: |
+  What does a frozen astronomy foundation model actually encode in a
+  galaxy image? This analysis takes AION-1-Large's image-only embeddings
+  for 10,000 real galaxies, 10,000 morphology-labelled galaxies and 10,000
+  simulated ASTRID galaxies, and asks three questions of them. `probes`
+  establishes the baseline: which physical and morphological properties are
+  linearly recoverable, measured against a photometry-only bar rather than
+  against zero, plus nuisance probes that quantify how much of the embedding
+  is telescope rather than galaxy. `manifold` asks what the embedding cloud
+  is shaped like, re-encoding galaxies at a grid of rotation angles so each
+  one's rotation orbit is measured directly, then quotienting that
+  orientation degree of freedom out to see what dimensionality and what
+  structure survive, and whether symbolic regression can name it.
+  `domain_gap` asks how much of the model's ability to tell a real galaxy
+  from a simulated one is physics rather than the absence of PSF and noise
+  in the simulated images.
+
+  The three stages are coupled through one wire: the instrument subspace
+  recovered by the nuisance probes in `probes` is what `domain_gap` projects
+  out before measuring residual discriminability. That is what turns the
+  real-versus-simulated number from a noise detector into a claim about
+  galaxies. Every such claim here is bounded by the same caveat, recorded on
+  the relevant decisions: projecting out a subspace removes the instrument
+  signature that the probes capture linearly, not all of it.
+
+inputs:
+  - id: anchor_embeddings
+    type: data
+    source: "KAAI-2026-Hackathon/observational-data/anchorEImg.npy"
+    label: "Anchor image embeddings"
+    description: >-
+      Frozen AION-1-Large image-only embeddings for the 10,000 real anchor
+      galaxies, shape (10000, 1024), mean-pooled at a 600-token budget.
+      Row i aligns with row i of anchor_catalogue.
+
+  - id: anchor_catalogue
+    type: data
+    source: "KAAI-2026-Hackathon/observational-data/anchor.parquet"
+    label: "Anchor catalogue"
+    description: >-
+      190-column catalogue for the 10,000 real anchor galaxies. Carries the
+      physical targets at full coverage (logMstar, avgSfr, tageMw, zMw,
+      redshift), photometry (magG/R/Z, fluxG/R/I/Z), geometry (paDeg,
+      inclDeg, shapeR, ellip) and observing conditions (psfFwhm*, psfDepth*,
+      galdepth*, ebv, nobs*). Morphology columns are present but sparse
+      (1.9-3.2%) and are not used here; morphology comes from gzArm.
+
+  - id: anchor_images
+    type: data
+    source: "KAAI-2026-Hackathon/observational-data/anchorFlux.npy"
+    label: "Anchor images"
+    description: >-
+      Raw g,r,i,z flux cutouts for the anchor sample, shape
+      (10000, 4, 160, 160), nanomaggies at zeropoint 22.5, unnormalised.
+      The 160px width leaves margin so an arbitrary rotation still yields a
+      fully defined 96px central crop — this is what makes the rotation-orbit
+      experiment possible.
+
+  - id: gzarm_embeddings
+    type: data
+    source: "KAAI-2026-Hackathon/observational-data/gzArmEImg.npy"
+    label: "gzArm image embeddings"
+    description: >-
+      Frozen AION-1-Large image-only embeddings for the 10,000-galaxy
+      morphology sample, shape (10000, 1024). A different set of galaxies
+      from the anchor sample; the two must never be merged.
+
+  - id: gzarm_catalogue
+    type: data
+    source: "KAAI-2026-Hackathon/observational-data/gzArm.parquet"
+    label: "gzArm morphology catalogue"
+    description: >-
+      Galaxy Zoo vote-fraction morphology labels at essentially full coverage
+      for the 10,000-galaxy morphology sample: smoothFraction,
+      featuredFraction, edgeOnFraction, spiralArmsFraction,
+      barStrongFraction/barWeakFraction, bulgeDominantFraction,
+      spiralTightFraction, mergerFraction. Also carries photometry, geometry
+      and observing conditions, but no physical properties.
+
+  - id: astrid_embeddings
+    type: data
+    source: "KAAI-2026-Hackathon/astrid-data/astridEImg.npy"
+    label: "ASTRID image embeddings"
+    description: >-
+      Frozen AION-1-Large embeddings for 10,000 simulated ASTRID galaxies,
+      shape (10000, 1024), produced with the identical encoder and settings
+      used for the real embeddings, which is what makes them numerically
+      comparable.
+
+  - id: astrid_images
+    type: data
+    source: KAAI-2026-Hackathon/astrid-data/astridImages.npy
+    label: "ASTRID images"
+    description: >-
+      Raw g,r,i,z cutouts for the 10,000 simulated ASTRID galaxies, shape
+      (10000, 4, 96, 96). Already at the 96px crop size, so unlike the 160px
+      anchor cutouts they carry no margin: only exact index transforms
+      (mirror, 90, 180 degrees) can be applied without pulling undefined
+      corners into frame. Carries no PSF and no noise.
+  - id: astrid_catalogue
+    type: data
+    source: "KAAI-2026-Hackathon/astrid-data/astrid.parquet"
+    label: "ASTRID catalogue"
+    description: >-
+      Exact (particle-derived, not fitted) physical properties for the 10,000
+      simulated galaxies: logMstarAper, logMstarTotal, massWeightedAgeGyr,
+      massWeightedMetallicity, sfr10, sfr100, redshift, plus enclR and a
+      pathology flag marking rows whose aperture mass or age failed.
+
+outputs:
+  - id: headline_probe_table
+    from: probes.probe_r2_physical
+  - id: headline_dimensionality
+    from: manifold.intrinsic_dim_quotient
+  - id: headline_domain_gap
+    from: domain_gap.residual_discriminability
+
+decisions:
+
+  embedding_preprocessing:
+    label: "Embedding preprocessing"
+    tags: [preprocessing]
+    rationale: >-
+      Conditions the 1024-d vectors before any probe or geometry measurement.
+      This is not cosmetic: per-dimension standardisation changes the metric
+      that nearest-neighbour intrinsic-dimension estimators operate in, and
+      L2 normalisation projects onto the sphere, which removes overall
+      embedding norm as a degree of freedom. A different choice here can move
+      both the probe R² and the ID estimate.
+    default: standardize
+    options:
+      raw:
+        label: "Raw"
+        description: "Vectors as shipped, no conditioning."
+      standardize:
+        label: "Per-dimension z-score"
+        description: >-
+          Centre and scale each of the 1024 dimensions using training-split
+          statistics only. Prevents a few high-variance dimensions from
+          dominating both ridge fits and neighbour distances.
+      l2_normalize:
+        label: "L2 normalise"
+        description: >-
+          Project onto the unit sphere, discarding norm. Standard for
+          similarity retrieval; costs any information carried by magnitude.
+      standardize_then_l2:
+        label: "Z-score then L2"
+        description: "Both, in that order."
+
+  eval_split:
+    label: "Held-out evaluation protocol"
+    tags: [stats]
+    rationale: >-
+      Every reported R² and AUC is a held-out number, so how the split is
+      drawn sets what the number means. Galaxies near each other on the sky
+      share observing conditions, so a plain random split can leak
+      instrument signature between train and test and inflate apparent skill.
+    default: kfold_5
+    options:
+      random_80_20:
+        label: "Random 80/20"
+        description: >-
+          Single random split. Fastest, no error bar from folds, and the
+          protocol AION-1's own evaluations use, so results computed this way
+          are the ones directly comparable to the paper's numbers.
+        insights: [aion_eval_split_80_20_holdout]
+      kfold_5:
+        label: "5-fold CV"
+        description: >-
+          Five folds, metrics reported as mean and spread across folds.
+          Gives a cheap error bar on every reported number.
+      sky_blocked:
+        label: "Sky-blocked folds"
+        description: >-
+          Folds drawn as contiguous RA/Dec blocks so that galaxies sharing
+          observing conditions land in the same fold. The conservative
+          choice, and the one that most directly guards against the
+          nuisance-leakage failure mode.
+
+  real_quality_cuts:
+    label: "Real-galaxy exclusions"
+    tags: [selection]
+    rationale: >-
+      Some anchor columns are only well defined for part of the sample
+      (shapeDefined is true for 80.6%). Excluding rows trades sample size
+      against target reliability, and the choice propagates into every
+      probe, the ID estimate, and the domain comparison.
+    default: standard
+    options:
+      none:
+        label: "No cuts"
+        description: "All 10,000 anchor galaxies retained."
+      standard:
+        label: "Standard"
+        description: >-
+          Require shapeDefined, and drop rows with non-finite values in the
+          targets being fitted. Retains most of the sample.
+      strict:
+        label: "Strict"
+        description: >-
+          Standard, plus a spectroscopic-quality requirement (fsZwarn == 0)
+          where available. Substantially smaller sample, more trustworthy
+          targets; note fsZwarn itself is only present for 62.6% of rows,
+          so this cut also selects on having been observed spectroscopically.
+
+  target_transform:
+    label: "Target variable transform"
+    tags: [preprocessing]
+    rationale: >-
+      avgSfr spans roughly five decades across the 1st-99th percentile range
+      (0.00064 to 73 solar masses per year) and zMw spans two. Fitting these
+      untransformed lets a handful of extreme galaxies set the loss and makes
+      R² report almost nothing about the bulk of the sample.
+    default: log_ssfr
+    options:
+      identity:
+        label: "Identity"
+        description: "Fit targets in their native units."
+      log_skewed:
+        label: "Log the skewed targets"
+        description: >-
+          log10 for avgSfr and zMw (with a floor applied to non-positive
+          values); identity for logMstar, tageMw and redshift, which are
+          already in a well-behaved range.
+        insights: [aion_target_transform_log_and_specific_rate]
+      log_ssfr:
+        label: "Log targets, SFR as specific rate"
+        description: >-
+          As log_skewed, but star formation rate is divided by stellar mass
+          first and fitted as log specific SFR. This is what the model's own
+          authors do, and it matters here for a second reason: sSFR removes
+          the mass dependence, so a high SFR probe R2 can no longer be earned
+          by a model that has only learned mass.
+        insights: [aion_target_transform_log_and_specific_rate]
+      rank_gauss:
+        label: "Rank-Gaussianise all"
+        description: >-
+          Map every target to a Gaussian by rank. Makes R² comparable across
+          targets of very different shape, at the cost of no longer being a
+          statement about the physical variable.
+
+  probe_model:
+    label: "Probe model family"
+    tags: [method]
+    rationale: >-
+      The baseline is deliberately linear, since a linear probe measures
+      what is linearly decodable rather than what a sufficiently large head
+      can extract. But a nonlinear probe is the control that says how much
+      linearity is costing, and without it a low R² cannot be distinguished
+      from information present but nonlinearly encoded.
+    default: ridge
+    options:
+      ridge:
+        label: "Ridge regression"
+        description: >-
+          L2-regularised linear probe. The baseline, and the only option that
+          yields weight vectors directly usable as a nuisance subspace.
+        insights: [aion_probe_is_linear_mlp_head, aion_image_only_baseline_decodability]
+      linear_ols:
+        label: "Unregularised OLS"
+        description: >-
+          No regularisation. Included mainly to show what regularisation is
+          doing at 1024 dimensions.
+      knn:
+        label: "k-nearest neighbours"
+        description: >-
+          Nonparametric, purely local. Measures whether the property is
+          organised by the embedding metric without assuming any global form.
+      mlp:
+        label: "Small MLP head"
+        description: >-
+          A one- or two-hidden-layer head. The upper bound on decodability;
+          the gap to ridge is the nonlinearity being left on the table, and
+          the configuration the model's own authors use to evaluate it.
+        insights: [aion_probe_is_linear_mlp_head]
+
+  morphology_label_form:
+    label: "Morphology label operationalisation"
+    tags: [selection]
+    rationale: >-
+      Galaxy Zoo gives vote fractions, not labels, and the gzArm sample
+      is severely imbalanced: bulgeDominantFraction has a median of 0.011
+      and mergerFraction 0.022, while spiralArmsFraction has a median of
+      0.88. Thresholding every label at 0.5 would yield almost no
+      positives for some classes and almost no negatives for others,
+      producing AUCs that describe the threshold rather than the model.
+    default: threshold_median
+    options:
+      threshold_half:
+        label: "Threshold at 0.5"
+        description: >-
+          The conventional choice. Transparent, but degenerate for the
+          strongly imbalanced labels in this sample.
+      threshold_median:
+        label: "Threshold at the sample median"
+        description: >-
+          Per-label threshold at that label's own median vote fraction,
+          giving a balanced problem for every label. AUCs become
+          comparable across labels, at the cost of the threshold no
+          longer meaning "most voters agreed".
+      vote_fraction_regression:
+        label: "Regress the vote fraction"
+        description: >-
+          Skip binarisation entirely and predict the continuous vote
+          fraction, scored by R² or Spearman rank correlation. Discards
+          no information and sidesteps the imbalance, but is no longer
+          comparable to published classification AUCs.
+
+  sim_quality_cuts:
+    label: "Simulated-galaxy exclusions"
+    tags: [selection]
+    rationale: >-
+      The ASTRID catalogue flags rows whose aperture mass or age could
+      not be computed cleanly, and records what fraction of each
+      galaxy's light landed inside the frame. A galaxy only partly
+      enclosed is a genuinely different picture from a fully enclosed
+      one, and if the real and simulated samples differ in how often
+      that happens, the classifier will learn framing rather than
+      physics.
+    default: pathology_and_encl
+    options:
+      none:
+        label: "No cuts"
+        description: "All 10,000 simulated galaxies retained."
+      pathology_only:
+        label: "Drop pathological rows"
+        description: >-
+          Drop rows with a non-empty pathology flag. Necessary whenever
+          logMstarAper or massWeightedAgeGyr is used as a target.
+      pathology_and_encl:
+        label: "Pathology and enclosure"
+        description: >-
+          Also require enclR at or above 0.9, so the frame contains
+          essentially the whole galaxy. Removes framing as a confound at
+          the cost of preferentially discarding the largest galaxies,
+          which is itself a selection that must be reported.
+  probe_regularization:
+    label: "Regularisation strength selection"
+    tags: [stats]
+    rationale: >-
+      At 1024 features and a few thousand training rows, the ridge penalty
+      is doing real work and the reported R² is sensitive to it. How the
+      penalty is chosen must be stated, not left implicit.
+    default: cv_grid
+    options:
+      cv_grid:
+        label: "Inner-CV grid search"
+        description: >-
+          Log-spaced grid selected by cross-validation inside the training
+          fold only, so no test information leaks into the choice.
+      gcv:
+        label: "Generalised CV"
+        description: "Closed-form leave-one-out estimate; much faster."
+      fixed:
+        label: "Fixed penalty"
+        description: >-
+          A single value applied to every target. Removes a degree of
+          freedom, making probes comparable across targets at some cost in
+          per-target skill.
+
+
+prior_insights:
+
+  aion_attentive_pooling_no_gain_over_mean:
+    id: aion_attentive_pooling_no_gain_over_mean
+    label: "Attentive pooling adds nothing for image tasks"
+    claim: "In AION-1's own ablations, replacing mean pooling with a learned attentive-pooling head over encoder tokens gave no measurable accuracy improvement for galaxy morphology classification or image segmentation, supporting mean pooling as the default choice for frozen-encoder embeddings."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Image-based galaxy tasks (morphology classification, segmentation). Property estimation in the same paper did use attentive pooling with cross-attention, so this is not a universal claim."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "we find that attentive pooling does not provide any meaningful gain in accuracy."
+          prefix: "unlike with property estimation, "
+        location: { value: "page=15", page: 15 }
+
+  aion_probe_is_linear_mlp_head:
+    id: aion_probe_is_linear_mlp_head
+    label: "Frozen-encoder protocol is a light head"
+    claim: "AION-1's authors evaluate the frozen encoder exclusively with lightweight linear or small two-layer MLP heads trained on top of frozen embeddings, not kNN or deep fine-tuned heads."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "General protocol across AION-1 downstream evaluations."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "we freeze the encoder, fit a small linear/MLP head on a representative calibration set that reflects the downstream selection function, and calibrate probabilities or continuous outputs."
+          prefix: "task-specific calibration. In practice, "
+        location: { value: "page=13", page: 13 }
+
+  aion_target_transform_log_and_specific_rate:
+    id: aion_target_transform_log_and_specific_rate
+    label: "Log targets and sSFR, not raw SFR"
+    claim: "For galaxy property regression AION-1's authors predict stellar mass and metallicity in log space and convert star formation rate to a specific rate, log(SFR/Mstar), explicitly to stabilise the dynamic range of the regression targets."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "PROVABGS-derived galaxy properties. Redshift and age are not log-transformed in their protocol."
+    tags: [preprocessing]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "To stabilize the dynamic range we predict log Zmet and log M⋆ and convert SFR to the specific rate sSFR = log(SFR/M⋆ )."
+        location: { value: "page=14", page: 14 }
+
+  aion_eval_split_80_20_holdout:
+    id: aion_eval_split_80_20_holdout
+    label: "AION-1 uses a single 80/20 split"
+    claim: "AION-1's frozen-encoder downstream evaluations use an 80/20 train/held-out split with a lightweight head, reporting R-squared on the held-out 20 percent; no k-fold cross-validation is used."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Galaxy and stellar property regression, and with class stratification, morphology classification."
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "We train the cross-attention layer and the MLP probe with mean-squared error on 80% of the cross-matched sample and report the coefficient of determination R2 on the held-out 20% split."
+        location: { value: "page=14", page: 14 }
+
+  aion_never_isolates_pure_image_only_input:
+    id: aion_never_isolates_pure_image_only_input
+    label: "No AION-1-native image-only number"
+    claim: "AION-1's galaxy property estimation benchmark never evaluates a pure image-only input configuration for its own model, reporting only photometry alone, photometry plus imaging, and photometry plus imaging plus spectra. There is therefore no AION-1-native figure for image-only decodability of physical properties, which is exactly the regime this analysis works in."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "The PROVABGS galaxy-property regression benchmark. Morphology and segmentation tasks elsewhere in the paper do use image-only inputs."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "is tokenised with the modality specific encoders described in"
+        location: { value: "page=14", page: 14 }
+
+  aion_image_only_baseline_decodability:
+    id: aion_image_only_baseline_decodability
+    label: "External image-only baselines"
+    claim: "The only image-only frozen-embedding numbers in the AION-1 paper come from the self-supervised baselines it compares against, AstroCLIP and DINOv2, evaluated on PROVABGS properties in its Table 1. Those provide the external yardstick for this analysis's image-only probes, with age and metallicity markedly harder than redshift and stellar mass."
+    created_at: "2026-09-02T12:00:00"
+    derived: true
+    scope: "Numeric values are read from Table 1, page 14, which is tabular and not verbatim-quotable prose. The evidence quote establishes the baseline protocol, not the individual numbers; consult Table 1 directly before citing any figure."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2510.17960"
+        version: 1
+        quote:
+          exact: "we benchmark two strong self-supervised baselines."
+        location: { value: "page=15", page: 15 }
+
+analyses:
+
+  probes:
+    path: ./analyses/probes
+  manifold:
+    path: ./analyses/manifold
+  domain_gap:
+    path: ./analyses/domain_gap
+

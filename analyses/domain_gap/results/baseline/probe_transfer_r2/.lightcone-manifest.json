@@ -1,0 +1,33 @@
+{
+  "code_version": "sha256:98590b92abacd29b71486696c1dc86dc362d28c582315c0da0ea20be5abb7fa7",
+  "container_image": "Containerfile",
+  "data_version": "sha256:f02a44d8d627fdc07d296449097ae26227278820ac70aba03cef6f030366d38e",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "eval_split": "kfold_5",
+    "probe_model": "ridge",
+    "probe_regularization": "cv_grid",
+    "real_quality_cuts": "standard",
+    "sim_mass_column": "log_mstar_aper",
+    "sim_quality_cuts": "pathology_and_encl",
+    "sim_sfr_column": "sfr100",
+    "target_transform": "log_ssfr"
+  },
+  "finished_at": 1788376931.2596304,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128",
+    "astrid_catalogue": "mtime-size:1788300134000000000-1145621",
+    "astrid_embeddings": "mtime-size:1788304746000000000-40960128"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "probe_transfer_r2",
+  "recipe": "python src/domain_gap/probe_transfer.py --real {inputs.anchor_embeddings} --real-cat {inputs.anchor_catalogue} --sim {inputs.astrid_embeddings} --sim-cat {inputs.astrid_catalogue} --embedding-preprocessing {decisions.embedding_preprocessing} --real-quality-cuts {decisions.real_quality_cuts} --sim-quality-cuts {decisions.sim_quality_cuts} --eval-split {decisions.eval_split} --probe-model {decisions.probe_model} --probe-regularization {decisions.probe_regularization} --target-transform {decisions.target_transform} --sim-mass-column {decisions.sim_mass_column} --sim-sfr-column {decisions.sim_sfr_column} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

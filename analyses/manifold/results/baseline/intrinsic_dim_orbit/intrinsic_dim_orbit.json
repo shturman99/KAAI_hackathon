@@ -1,0 +1,61 @@
+{
+  "ambient_dim": 1024,
+  "caveat": "Not a dimension estimate. These points are sampled on a uniform grid, which violates TwoNN's local-Poisson assumption: each point's two nearest neighbours are near-equidistant, mu collapses towards 1 and the fitted value inflates without bound. Read the harmonic spectrum and the linear participation ratio instead.",
+  "conditioned_on": "pooled orbit points",
+  "diagnostic": {
+    "curve": [
+      {
+        "block_size": 512,
+        "id_mean": 6.50455704776218,
+        "id_std": 0.0,
+        "n_blocks": 1
+      },
+      {
+        "block_size": 256,
+        "id_mean": 6.504557047762179,
+        "id_std": 0.11865590072635879,
+        "n_blocks": 2
+      },
+      {
+        "block_size": 128,
+        "id_mean": 6.50455704776218,
+        "id_std": 0.3102113807667979,
+        "n_blocks": 4
+      },
+      {
+        "block_size": 64,
+        "id_mean": 6.50455704776218,
+        "id_std": 0.43736248885330214,
+        "n_blocks": 8
+      },
+      {
+        "block_size": 32,
+        "id_mean": 6.504557047762179,
+        "id_std": 0.5238783645595279,
+        "n_blocks": 16
+      }
+    ],
+    "full_sample_id": 6.50455704776218,
+    "mode": "block_analysis",
+    "n_stable_blocks": 5,
+    "plateau_tolerance": 0.1
+  },
+  "embedding_preprocessing": "standardize",
+  "id": 6.504557047762179,
+  "id_estimator": "twonn",
+  "id_scale_selection": "block_analysis",
+  "is_lower_bound": false,
+  "linear_participation_ratio_mean": 4.069098326149673,
+  "linear_participation_ratio_std": 1.0849186913100584,
+  "mode": "orbit",
+  "mu_median_expected_for_1d": 2.0,
+  "mu_median_over_galaxies": 1.1377613369941155,
+  "n_angles": 16,
+  "n_galaxies": 512,
+  "n_galaxies_estimated": 512,
+  "participation_ratio_note": "a single closed circle spans a 2-plane, so PR near 2 means the orbit is one closed curve; PR well above 2 means rotation sweeps out more than a simple circle",
+  "per_galaxy_id_mean": 6.504557047762179,
+  "per_galaxy_id_median": 6.371252670774764,
+  "per_galaxy_id_std": 3.19258469954382,
+  "sampling_assumption_violated": true
+}

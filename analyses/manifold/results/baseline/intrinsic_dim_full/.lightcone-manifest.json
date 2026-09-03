@@ -1,0 +1,26 @@
+{
+  "code_version": "sha256:c3d8078c37b43f961e98920ad3124fbb317db4cfdf023fce44faf89b9646e989",
+  "container_image": "Containerfile",
+  "data_version": "sha256:7c6a283af6b1f6bf1f5842126edcf98d24d886a6e6cd033cc8079255f3355876",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "id_estimator": "twonn",
+    "id_scale_selection": "block_analysis",
+    "real_quality_cuts": "standard"
+  },
+  "finished_at": 1788374397.5858355,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "intrinsic_dim_full",
+  "recipe": "python src/manifold/intrinsic_dim.py --emb {inputs.anchor_embeddings} --cat {inputs.anchor_catalogue} --mode full --embedding-preprocessing {decisions.embedding_preprocessing} --real-quality-cuts {decisions.real_quality_cuts} --id-estimator {decisions.id_estimator} --id-scale-selection {decisions.id_scale_selection} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

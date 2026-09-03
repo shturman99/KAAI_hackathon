@@ -1,0 +1,6 @@
+target,fitted_quantity,features,n_features,n_rows,r2_mean,r2_std,n_folds,alpha_mean,probe_model,eval_split,target_transform,embedding_preprocessing,real_quality_cuts
+logMstar,logMstar,embedding,1024,8058,0.7969741609577462,0.0065721602290080205,5,215.44346900318823,ridge,kfold_5,log_ssfr,standardize,standard
+avgSfr,log_sSFR,embedding,1024,8058,0.5487803634810937,0.017978911282340006,5,1000.0,ridge,kfold_5,log_ssfr,standardize,standard
+tageMw,tageMw,embedding,1024,8058,0.24829624088642072,0.01772441282246593,5,1230.8869380063766,ridge,kfold_5,log_ssfr,standardize,standard
+zMw,log_zMw,embedding,1024,8058,0.4012561222133164,0.02589074350563431,5,1000.0,ridge,kfold_5,log_ssfr,standardize,standard
+redshift,redshift,embedding,1024,8058,0.8136914045631715,0.010043403329180757,5,265.186551874806,ridge,kfold_5,log_ssfr,standardize,standard

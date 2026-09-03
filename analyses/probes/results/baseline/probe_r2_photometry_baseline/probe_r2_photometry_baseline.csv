@@ -1,0 +1,6 @@
+target,fitted_quantity,features,feature_names,n_features,n_rows,r2_mean,r2_std,n_folds,alpha_mean,probe_model,eval_split,target_transform,real_quality_cuts
+logMstar,logMstar,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,8058,0.6649579189340448,0.007461229508260623,5,124.74374293572639,ridge,kfold_5,log_ssfr,standard
+avgSfr,log_sSFR,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,8058,0.46871567790929713,0.025879168304299593,5,5.559204704728932,ridge,kfold_5,log_ssfr,standard
+tageMw,tageMw,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,8058,0.1388458753490462,0.025265573895428124,5,10.165504913508876,ridge,kfold_5,log_ssfr,standard
+zMw,log_zMw,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,8058,0.3365760429689928,0.031048563447990417,5,119.76943464856461,ridge,kfold_5,log_ssfr,standard
+redshift,redshift,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,8058,0.681440419838428,0.006801767900042861,5,14.617738760127528,ridge,kfold_5,log_ssfr,standard

@@ -1,0 +1,26 @@
+{
+  "code_version": "sha256:23e8275525c9cc88a09516d2c5e95e2df3202710ad91837ef9c1df7cae8e062d",
+  "container_image": "Containerfile",
+  "data_version": "sha256:9c64e31c0515011119f8ca45daec97c53b609ca68b2d2bbc8a23e6fd125d37c3",
+  "decisions": {
+    "eval_split": "kfold_5",
+    "morphology_label_form": "threshold_median",
+    "photometry_baseline_features": "mags_colours",
+    "probe_model": "ridge",
+    "probe_regularization": "cv_grid"
+  },
+  "finished_at": 1788376765.3795083,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "gzarm_catalogue": "mtime-size:1788278594000000000-3367863"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "morphology_auc_photometry",
+  "recipe": "python src/probes/probe_morphology_photometry.py --cat {inputs.gzarm_catalogue} --eval-split {decisions.eval_split} --probe-model {decisions.probe_model} --probe-regularization {decisions.probe_regularization} --morphology-label-form {decisions.morphology_label_form} --photometry-baseline-features {decisions.photometry_baseline_features} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

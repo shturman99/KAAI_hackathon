@@ -1,0 +1,28 @@
+{
+  "code_version": "sha256:1ce4fc2419b0f78d10a38e2de38bd87060bc06b89b5fa36f2393f4b1298b7ce1",
+  "container_image": "Containerfile",
+  "data_version": "sha256:482dc6ec862c284880bc9af0b48f0efcf1070417b025ac213be16d462177406e",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "id_estimator": "twonn",
+    "id_scale_selection": "block_analysis",
+    "quotient_operator": "orbit_mean",
+    "real_quality_cuts": "standard"
+  },
+  "finished_at": 1788374381.1794903,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128",
+    "rotation_orbit_embeddings": "sha256:c7e2ab20e4dafe2706821e0db1abcbdc17c5a307b060b95a96bd1bad9fbc6c3f"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "intrinsic_dim_quotient",
+  "recipe": "python src/manifold/intrinsic_dim.py --orbits {inputs.rotation_orbit_embeddings} --emb {inputs.anchor_embeddings} --cat {inputs.anchor_catalogue} --mode quotient --embedding-preprocessing {decisions.embedding_preprocessing} --real-quality-cuts {decisions.real_quality_cuts} --id-estimator {decisions.id_estimator} --id-scale-selection {decisions.id_scale_selection} --quotient-operator {decisions.quotient_operator} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

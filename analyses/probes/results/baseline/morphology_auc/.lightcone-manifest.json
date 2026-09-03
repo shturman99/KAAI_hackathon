@@ -1,0 +1,27 @@
+{
+  "code_version": "sha256:e6b13950e31d2a1043a38be4bdb9c98a20b354a11abfe320b19b8c467e1df4a3",
+  "container_image": "Containerfile",
+  "data_version": "sha256:1b7e4b7e6d4635951180277a5693e51d2776c84e6e1cb6ae7df611da7db2d1cf",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "eval_split": "kfold_5",
+    "morphology_label_form": "threshold_median",
+    "probe_model": "ridge",
+    "probe_regularization": "cv_grid"
+  },
+  "finished_at": 1788376712.55071,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "gzarm_catalogue": "mtime-size:1788278594000000000-3367863",
+    "gzarm_embeddings": "mtime-size:1788278558000000000-40960128"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "morphology_auc",
+  "recipe": "python src/probes/probe_morphology.py --emb {inputs.gzarm_embeddings} --cat {inputs.gzarm_catalogue} --embedding-preprocessing {decisions.embedding_preprocessing} --eval-split {decisions.eval_split} --probe-model {decisions.probe_model} --probe-regularization {decisions.probe_regularization} --morphology-label-form {decisions.morphology_label_form} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

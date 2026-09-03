@@ -1,0 +1,24 @@
+{
+  "code_version": "sha256:bd75f16d0cd0374af546d1fc6346149c03c07bff3821d5ea1c8d0f04abaac213",
+  "container_image": "Containerfile",
+  "data_version": "sha256:6372ac3ddc121e31a65cf3e8eab96b76b05de104858bcd1e46b69292975397a7",
+  "decisions": {},
+  "finished_at": 1788376961.2803717,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "morphology_auc": "sha256:1b7e4b7e6d4635951180277a5693e51d2776c84e6e1cb6ae7df611da7db2d1cf",
+    "morphology_auc_photometry": "sha256:9c64e31c0515011119f8ca45daec97c53b609ca68b2d2bbc8a23e6fd125d37c3",
+    "nuisance_probe_r2": "sha256:4540bd98208196df0457f04d56d781c330c768512b7cca6d7936a48c633574cb",
+    "probe_r2_photometry_baseline": "sha256:7f6c472e85e086a0a12f8b37e6d9dc4843bb1bf8d35f7e9d5c9af2ddd82f04c7",
+    "probe_r2_physical": "sha256:c58610722e2b2c272ab0708cdeb5d3895af63894040ff8afacedaafb1dd193f2"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "probe_comparison_plot",
+  "recipe": "python src/probes/plot_comparison.py --inputs {inputs} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

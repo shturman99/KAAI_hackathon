@@ -1,0 +1,199 @@
+version: "0.0.14"
+# ------------------------------------------------------------------
+# Goal 1 — what is linearly decodable from the embedding at all
+# ------------------------------------------------------------------
+name: "Linear decodability baseline"
+description: >-
+  Establishes the baseline: which galaxy properties are linearly
+  recoverable from a frozen image-only embedding, how much of that skill
+  is already available from catalogue photometry alone, and how much of
+  the embedding is instrument signature rather than galaxy. The nuisance
+  probes produced here define the instrument subspace that domain_gap
+  projects out.
+
+inputs:
+  - id: anchor_embeddings
+    from: ../anchor_embeddings
+  - id: anchor_catalogue
+    from: ../anchor_catalogue
+  - id: gzarm_embeddings
+    from: ../gzarm_embeddings
+  - id: gzarm_catalogue
+    from: ../gzarm_catalogue
+
+decisions:
+  embedding_preprocessing: { from: ../embedding_preprocessing }
+  eval_split:              { from: ../eval_split }
+  real_quality_cuts:       { from: ../real_quality_cuts }
+  target_transform:        { from: ../target_transform }
+  probe_model:             { from: ../probe_model }
+  probe_regularization:    { from: ../probe_regularization }
+
+  photometry_baseline_features:
+    label: "Photometry baseline feature set"
+    tags: [selection]
+    rationale: >-
+      Defines the bar the embedding has to clear. A baseline of
+      magnitudes alone is easy to beat and makes the embedding look
+      better than it is; adding colours and then morphological shape
+      parameters progressively raises the bar until what remains is
+      genuinely information the pixels carry beyond catalogue summaries.
+      The headline claim of goal 1 depends entirely on where this line
+      is drawn, so it must be an explicit choice.
+    default: mags_colours
+    options:
+      mags_only:
+        label: "Magnitudes only"
+        description: "magG, magR, magZ. The weakest baseline."
+      mags_colours:
+        label: "Magnitudes and colours"
+        description: >-
+          Magnitudes plus all pairwise colours. Colours carry most of the
+          stellar-population information available photometrically, so
+          this is the honest reference point.
+      mags_colours_shape:
+        label: "Magnitudes, colours and shape"
+        description: >-
+          Adds shapeR, ellip, ba and sersic. The hardest baseline: any
+          remaining embedding advantage is not reducible to brightness,
+          colour, size or ellipticity.
+
+  morphology_label_form: { from: ../morphology_label_form }
+
+  nuisance_feature_set:
+    label: "Nuisance variable set"
+    tags: [selection]
+    rationale: >-
+      Determines which observing conditions count as instrument
+      signature, and therefore the dimension and content of the subspace
+      that domain_gap projects out. Too narrow a set leaves instrument
+      in the residual and inflates the apparent physics gap; too broad a
+      set risks projecting out directions that also carry real galaxy
+      information, deflating it.
+    default: psf_depth_ebv
+    options:
+      psf_only:
+        label: "PSF only"
+        description: "psfFwhmG, psfFwhmR, psfFwhmI, psfFwhmZ."
+      psf_depth:
+        label: "PSF and depth"
+        description: "Adds psfDepth and galdepth in all four bands."
+      psf_depth_ebv:
+        label: "PSF, depth and extinction"
+        description: >-
+          Adds Galactic reddening (ebv) and per-band exposure counts
+          (nobs). The most complete account of the observing conditions
+          recorded in the catalogue.
+
+outputs:
+  - id: probe_r2_physical
+    type: table
+    format: csv
+    label: "Physical-property probe R²"
+    description: >-
+      Held-out R² for each core physical target (logMstar, avgSfr,
+      tageMw, zMw, redshift) predicted from the anchor embedding.
+    inputs: [anchor_embeddings, anchor_catalogue]
+    decisions: [embedding_preprocessing, eval_split, real_quality_cuts, target_transform, probe_model, probe_regularization]
+    recipe:
+      command: >-
+        python src/probes/probe_physical.py --emb {inputs.anchor_embeddings} --cat
+        {inputs.anchor_catalogue} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --eval-split {decisions.eval_split}
+        --real-quality-cuts {decisions.real_quality_cuts} --target-transform
+        {decisions.target_transform} --probe-model {decisions.probe_model}
+        --probe-regularization {decisions.probe_regularization} --out {output}
+
+  - id: probe_r2_photometry_baseline
+    type: table
+    format: csv
+    label: "Photometry-only probe R²"
+    description: >-
+      The same targets predicted from catalogue photometry and colours
+      alone. The trivial baseline: skill above this line is what the
+      embedding adds beyond aperture photometry.
+    inputs: [anchor_catalogue]
+    decisions: [eval_split, real_quality_cuts, target_transform, probe_model, probe_regularization, photometry_baseline_features]
+    recipe:
+      command: >-
+        python src/probes/probe_photometry.py --cat {inputs.anchor_catalogue}
+        --eval-split {decisions.eval_split} --real-quality-cuts
+        {decisions.real_quality_cuts} --target-transform
+        {decisions.target_transform} --probe-model {decisions.probe_model}
+        --probe-regularization {decisions.probe_regularization}
+        --photometry-baseline-features {decisions.photometry_baseline_features}
+        --out {output}
+
+  - id: nuisance_probe_r2
+    type: table
+    format: csv
+    label: "Nuisance probe R² and directions"
+    description: >-
+      Held-out R² for observing conditions (psfFwhm per band, psfDepth
+      per band, ebv) predicted from the anchor embedding, together with
+      the fitted probe weight vectors. Those vectors span the instrument
+      subspace consumed by domain_gap.residual_discriminability. High R²
+      here is a warning, not a result: it means the embedding carries
+      telescope, not galaxy.
+    inputs: [anchor_embeddings, anchor_catalogue]
+    decisions: [embedding_preprocessing, eval_split, real_quality_cuts, probe_model, probe_regularization, nuisance_feature_set]
+    recipe:
+      command: >-
+        python src/probes/probe_nuisance.py --emb {inputs.anchor_embeddings} --cat
+        {inputs.anchor_catalogue} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --eval-split {decisions.eval_split}
+        --real-quality-cuts {decisions.real_quality_cuts} --probe-model
+        {decisions.probe_model} --probe-regularization
+        {decisions.probe_regularization} --nuisance-feature-set
+        {decisions.nuisance_feature_set} --out {output}
+
+  - id: morphology_auc
+    type: table
+    format: csv
+    label: "Morphology probe AUC"
+    description: >-
+      Held-out AUC for Galaxy Zoo morphology labels (spiral arms, bar,
+      edge-on, bulge dominance, merger) predicted from the gzArm
+      embedding, with vote fractions thresholded into binary labels.
+    inputs: [gzarm_embeddings, gzarm_catalogue]
+    decisions: [embedding_preprocessing, eval_split, probe_model, probe_regularization, morphology_label_form]
+    recipe:
+      command: >-
+        python src/probes/probe_morphology.py --emb {inputs.gzarm_embeddings}
+        --cat {inputs.gzarm_catalogue} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --eval-split {decisions.eval_split}
+        --probe-model {decisions.probe_model} --probe-regularization
+        {decisions.probe_regularization} --morphology-label-form
+        {decisions.morphology_label_form} --out {output}
+
+  - id: morphology_auc_photometry
+    type: table
+    format: csv
+    label: "Morphology photometry baseline AUC"
+    description: >-
+      The same morphology labels predicted from gzArm photometry, colours
+      and shape parameters alone.
+    inputs: [gzarm_catalogue]
+    decisions: [eval_split, probe_model, probe_regularization, morphology_label_form, photometry_baseline_features]
+    recipe:
+      command: >-
+        python src/probes/probe_morphology_photometry.py --cat
+        {inputs.gzarm_catalogue} --eval-split {decisions.eval_split} --probe-model
+        {decisions.probe_model} --probe-regularization
+        {decisions.probe_regularization} --morphology-label-form
+        {decisions.morphology_label_form} --photometry-baseline-features
+        {decisions.photometry_baseline_features} --out {output}
+
+  - id: probe_comparison_plot
+    type: figure
+    format: pdf
+    label: "Embedding vs photometry"
+    description: >-
+      Embedding skill against photometry-only skill for every target,
+      physical and morphological, on one axis, with the nuisance probes
+      marked separately.
+    inputs: [probe_r2_physical, probe_r2_photometry_baseline, morphology_auc, morphology_auc_photometry, nuisance_probe_r2]
+    recipe:
+      command: >-
+        python src/probes/plot_comparison.py --inputs {inputs} --out {output}
+

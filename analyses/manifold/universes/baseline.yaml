@@ -1,0 +1,15 @@
+id: baseline
+description: Default configuration using standard practices
+decisions:
+  orbit_subsample: n512
+  angle_grid: a16
+  rotation_interpolation: bicubic
+  orbit_reference_frame: sky_frame
+  id_estimator: twonn
+  id_scale_selection: block_analysis
+  quotient_operator: orbit_mean
+  sr_reduction: pca
+  sr_n_coordinates: k8
+  sr_operator_set: arithmetic_exp_log
+  sr_validation: holdout_refit
+  sr_complexity_selection: best_score

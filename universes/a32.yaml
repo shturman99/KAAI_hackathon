@@ -1,0 +1,18 @@
+id: a32
+description: Angle-grid refinement sweep for goal 2
+decisions:
+  embedding_preprocessing: standardize
+  eval_split: kfold_5
+  real_quality_cuts: standard
+  target_transform: log_ssfr
+  probe_model: ridge
+  probe_regularization: cv_grid
+  morphology_label_form: threshold_median
+  sim_quality_cuts: pathology_and_encl
+analyses:
+  probes:
+    universe: baseline
+  manifold:
+    universe: a32
+  domain_gap:
+    universe: baseline

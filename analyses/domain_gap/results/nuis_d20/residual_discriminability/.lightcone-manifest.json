@@ -1,0 +1,35 @@
+{
+  "code_version": "sha256:82c6aa04e80bb7cd7ad20ee6e2c8888f446909318f183aabe8ddcaa570442d87",
+  "container_image": "Containerfile",
+  "data_version": "sha256:8337311722f2949530e74825a9a8e46d683a739dc1e0e111590c5fffaeaf5043",
+  "decisions": {
+    "classifier_model": "logistic",
+    "domain_matching": "mass_redshift",
+    "embedding_preprocessing": "standardize",
+    "eval_split": "kfold_5",
+    "matching_method": "nearest_neighbour_pairs",
+    "nuisance_projection": "probe_weight_span",
+    "nuisance_subspace_dim": "d20",
+    "real_quality_cuts": "standard",
+    "sim_mass_column": "log_mstar_aper",
+    "sim_quality_cuts": "pathology_and_encl"
+  },
+  "finished_at": 1788449624.9492896,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128",
+    "astrid_catalogue": "mtime-size:1788300134000000000-1145621",
+    "astrid_embeddings": "mtime-size:1788304746000000000-40960128",
+    "nuisance_directions": "sha256:4540bd98208196df0457f04d56d781c330c768512b7cca6d7936a48c633574cb"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "residual_discriminability",
+  "recipe": "python src/domain_gap/discriminate.py --real {inputs.anchor_embeddings} --real-cat {inputs.anchor_catalogue} --sim {inputs.astrid_embeddings} --sim-cat {inputs.astrid_catalogue} --nuisance {inputs.nuisance_directions} --stage residual --embedding-preprocessing {decisions.embedding_preprocessing} --real-quality-cuts {decisions.real_quality_cuts} --sim-quality-cuts {decisions.sim_quality_cuts} --eval-split {decisions.eval_split} --classifier-model {decisions.classifier_model} --domain-matching {decisions.domain_matching} --matching-method {decisions.matching_method} --sim-mass-column {decisions.sim_mass_column} --nuisance-projection {decisions.nuisance_projection} --nuisance-subspace-dim {decisions.nuisance_subspace_dim} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "nuis_d20",
+  "worker_image": null
+}

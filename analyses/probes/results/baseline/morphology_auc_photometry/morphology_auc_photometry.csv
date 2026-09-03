@@ -1,0 +1,7 @@
+label,metric,features,feature_names,n_features,n_rows,positive_rate,threshold,score_mean,score_std,n_folds,morphology_label_form,probe_model,eval_split
+spiralArmsFraction,auc,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,10000,0.5,0.8812504708766937,0.5909234,0.009438801716319705,5,threshold_median,ridge,kfold_5
+barStrongFraction,auc,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,10000,0.5,0.10205938294529915,0.5942526,0.007213705749474392,5,threshold_median,ridge,kfold_5
+barWeakFraction,auc,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,10000,0.5,0.32012705504894257,0.5619864,0.008211903423689316,5,threshold_median,ridge,kfold_5
+edgeOnFraction,auc,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,10000,0.5,0.03446687571704388,0.6274078000000001,0.009674234758367166,5,threshold_median,ridge,kfold_5
+bulgeDominantFraction,auc,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,10000,0.5,0.0113826934248209,0.7309355999999999,0.01576044708249104,5,threshold_median,ridge,kfold_5
+mergerFraction,auc,mags_colours,magG|magR|magI|magZ|G-R|G-I|G-Z|R-I|R-Z|I-Z,10,10000,0.5,0.022267799824476242,0.6177919999999999,0.009959003343708682,5,threshold_median,ridge,kfold_5

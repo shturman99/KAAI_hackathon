@@ -1,0 +1,23 @@
+{
+  "code_version": "sha256:b0a8cb64fbfc0bbb5c7d85210c973e898109c7a1ec6222a310212f61d53342ae",
+  "container_image": "Containerfile",
+  "data_version": "sha256:3af46d0bfb96025f223c6529a7608d88fad466684cf2254233001b3ef9c1e354",
+  "decisions": {
+    "embedding_preprocessing": "standardize"
+  },
+  "finished_at": 1788451920.1671329,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_images": "mtime-size:1788278546000000000-4096000128",
+    "rotation_orbit_embeddings": "sha256:c7e2ab20e4dafe2706821e0db1abcbdc17c5a307b060b95a96bd1bad9fbc6c3f"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "parity_control",
+  "recipe": "python src/manifold/parity_control.py --images {inputs.anchor_images} --orbits {inputs.rotation_orbit_embeddings} --embedding-preprocessing {decisions.embedding_preprocessing} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

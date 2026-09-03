@@ -1,0 +1,23 @@
+{
+  "code_version": "sha256:9fb2aa43b594cccd8eb7533184d1e199a0df735e71bd8e6bcd964f988ea7e1e6",
+  "container_image": "Containerfile",
+  "data_version": "sha256:c09b0ae8e5499619f96ceac58dc1aa2646c105b56966614817c018d0c698e574",
+  "decisions": {},
+  "finished_at": 1788374491.5694847,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "intrinsic_dim_full": "sha256:7c6a283af6b1f6bf1f5842126edcf98d24d886a6e6cd033cc8079255f3355876",
+    "intrinsic_dim_orbit": "sha256:67efed08d9de2c48ccc8438ea2b8bd8725629921c2eb89364070e245a9708b92",
+    "intrinsic_dim_quotient": "sha256:482dc6ec862c284880bc9af0b48f0efcf1070417b025ac213be16d462177406e",
+    "orbit_fourier_spectrum": "sha256:82ffcc36ace069f0f49b9290c8f8d5dcc8bed41cf3cfd1e8c0ef5bc96db53800"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "id_comparison_plot",
+  "recipe": "python src/manifold/plot_dimensionality.py --inputs {inputs} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

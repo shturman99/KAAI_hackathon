@@ -1,0 +1,30 @@
+{
+  "ambient_dim": 1024,
+  "conditioned_on": "anchor cloud",
+  "delta_matched": 2.3738120479369496,
+  "delta_naive": 4.315599288284005,
+  "embedding_preprocessing": "standardize",
+  "finite_sample_bias": 1.9417872403470557,
+  "full_cloud_id_at_full_n": 14.623412909632693,
+  "full_cloud_id_at_matched_n_mean": 12.681625669285637,
+  "full_cloud_id_at_matched_n_p05": 11.772104416230842,
+  "full_cloud_id_at_matched_n_p95": 13.588672818748794,
+  "full_cloud_id_at_matched_n_std": 0.602524007905858,
+  "id": 2.3738120479369496,
+  "id_estimator": "twonn",
+  "interpretation": "delta_matched is the dimensionality the quotient removes once sample size is held fixed. delta_naive compares the two at their native sample sizes and is inflated by finite_sample_bias, which is TwoNN's own drift between n_full and matched_n on this cloud.",
+  "is_lower_bound": false,
+  "matched_n": 512,
+  "mode": "matched",
+  "n_anchor_rows": 8058,
+  "n_draws": 64,
+  "n_full_cloud": 8058,
+  "quotient": {
+    "applies_to_full_cloud": false,
+    "dim": 1024,
+    "operator": "orbit_mean"
+  },
+  "quotient_id_at_matched_n": 10.307813621348688,
+  "quotient_operator": "orbit_mean",
+  "real_quality_cuts": "standard"
+}

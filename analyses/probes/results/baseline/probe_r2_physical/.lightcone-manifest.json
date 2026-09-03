@@ -1,0 +1,28 @@
+{
+  "code_version": "sha256:4b6ee555ef73ed2cf3b9c4d15bc8d3b5b8a9f77af34fdf074703ec9fc00734a4",
+  "container_image": "Containerfile",
+  "data_version": "sha256:c58610722e2b2c272ab0708cdeb5d3895af63894040ff8afacedaafb1dd193f2",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "eval_split": "kfold_5",
+    "probe_model": "ridge",
+    "probe_regularization": "cv_grid",
+    "real_quality_cuts": "standard",
+    "target_transform": "log_ssfr"
+  },
+  "finished_at": 1788374669.6697817,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "probe_r2_physical",
+  "recipe": "python src/probes/probe_physical.py --emb {inputs.anchor_embeddings} --cat {inputs.anchor_catalogue} --embedding-preprocessing {decisions.embedding_preprocessing} --eval-split {decisions.eval_split} --real-quality-cuts {decisions.real_quality_cuts} --target-transform {decisions.target_transform} --probe-model {decisions.probe_model} --probe-regularization {decisions.probe_regularization} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

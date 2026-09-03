@@ -1,0 +1,28 @@
+{
+  "code_version": "sha256:7cd809bd0161fe0362cef0359edaa21c6028af6bc04a38c870fb796225da9eef",
+  "container_image": "Containerfile",
+  "data_version": "sha256:4540bd98208196df0457f04d56d781c330c768512b7cca6d7936a48c633574cb",
+  "decisions": {
+    "embedding_preprocessing": "standardize",
+    "eval_split": "kfold_5",
+    "nuisance_feature_set": "psf_depth_ebv",
+    "probe_model": "ridge",
+    "probe_regularization": "cv_grid",
+    "real_quality_cuts": "standard"
+  },
+  "finished_at": 1788374911.4843016,
+  "git_remote": null,
+  "git_sha": null,
+  "host": "murman",
+  "input_versions": {
+    "anchor_catalogue": "mtime-size:1788278594000000000-9299049",
+    "anchor_embeddings": "mtime-size:1788278558000000000-40960128"
+  },
+  "lc_version": "0.4.2",
+  "output_id": "nuisance_probe_r2",
+  "recipe": "python src/probes/probe_nuisance.py --emb {inputs.anchor_embeddings} --cat {inputs.anchor_catalogue} --embedding-preprocessing {decisions.embedding_preprocessing} --eval-split {decisions.eval_split} --real-quality-cuts {decisions.real_quality_cuts} --probe-model {decisions.probe_model} --probe-regularization {decisions.probe_regularization} --nuisance-feature-set {decisions.nuisance_feature_set} --out {output}",
+  "schema_version": 1,
+  "slurm_job_id": null,
+  "universe_id": "baseline",
+  "worker_image": null
+}

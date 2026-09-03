@@ -1,0 +1,1002 @@
+version: "0.0.14"
+# ------------------------------------------------------------------
+# Goal 2 — geometry of the embedding manifold
+# ------------------------------------------------------------------
+name: "Embedding manifold structure"
+description: >-
+  Asks what the embedding cloud is shaped like. Encodes each of a
+  subsample of galaxies at many position angles so that its rotation
+  orbit is measured directly, quantifies how much of the cloud's
+  effective dimensionality is that orientation degree of freedom, and
+  then asks what structure survives the quotient — and whether symbolic
+  regression can name it.
+
+inputs:
+  - id: anchor_images
+    from: ../anchor_images
+  - id: anchor_catalogue
+    from: ../anchor_catalogue
+  - id: anchor_embeddings
+    from: ../anchor_embeddings
+  - id: gzarm_embeddings
+    from: ../gzarm_embeddings
+  - id: gzarm_catalogue
+    from: ../gzarm_catalogue
+  - id: astrid_images
+    from: ../astrid_images
+  - id: astrid_catalogue
+    from: ../astrid_catalogue
+
+decisions:
+  embedding_preprocessing: { from: ../embedding_preprocessing }
+  eval_split:              { from: ../eval_split }
+  real_quality_cuts:       { from: ../real_quality_cuts }
+  target_transform:        { from: ../target_transform }
+  probe_model:             { from: ../probe_model }
+  probe_regularization:    { from: ../probe_regularization }
+  morphology_label_form:   { from: ../morphology_label_form }
+  sim_quality_cuts:        { from: ../sim_quality_cuts }
+
+  orbit_subsample:
+    label: "Galaxies re-encoded"
+    tags: [selection]
+    rationale: >-
+      The only GPU-bound step in the project. Total encodes are this
+      number times the angle grid, and the whole thing has to finish on a
+      6 GB laptop card inside the event. More galaxies gives a better
+      estimate of how orbit geometry varies across the population;
+      fewer leaves time to iterate.
+    default: n512
+    options:
+      n256: { label: "256 galaxies", description: "Fastest; enough to characterise a typical orbit, thin for population statistics." }
+      n512:
+        label: "512 galaxies"
+        description: >-
+          The working choice: 512 x 16 = 8,192 encodes. Defensible for the
+          orbit and quotient estimates, which are expected to sit in the
+          regime where a finite sample tracks ground truth closely.
+        insights: [id_accurate_for_small_true_id_finite_n, subsampling_stability_check]
+      n1024: { label: "1024 galaxies", description: "Better population coverage; roughly doubles GPU time." }
+
+  angle_grid:
+    label: "Rotation angle grid"
+    tags: [method]
+    rationale: >-
+      Sets the highest angular harmonic that can be resolved in the
+      orbit: N uniformly spaced angles resolve harmonics up to order
+      N/2 before aliasing. Since the central question is whether the
+      orbit is a simple circle (one dominant harmonic) or carries richer
+      structure, too coarse a grid would answer the question by
+      construction.
+    default: a16
+    options:
+      a8:   { label: "8 angles", description: "45-degree steps; resolves up to harmonic 4. Cheapest, and too coarse to rule out higher-order structure." }
+      a16:  { label: "16 angles", description: "22.5-degree steps; resolves up to harmonic 8. Enough to distinguish a circle from a many-lobed orbit." }
+      a32:  { label: "32 angles", description: "11.25-degree steps; resolves up to harmonic 16. Doubles GPU cost." }
+
+  rotation_interpolation:
+    label: "Rotation resampling kernel"
+    tags: [preprocessing]
+    rationale: >-
+      Rotating by an angle that is not a multiple of 90 degrees resamples
+      the image and slightly smooths it. That smoothing is itself a
+      change the encoder can see, so part of any measured
+      embedding-versus-angle variation may be interpolation blur rather
+      than orientation. Comparing kernels, and comparing against the
+      exact 90-degree rotations, is how that confound is bounded.
+    default: bicubic
+    options:
+      bilinear: { label: "Bilinear", description: "Smoothest, most flux redistribution between pixels." }
+      bicubic:  { label: "Bicubic", description: "Sharper than bilinear with mild ringing; the usual default." }
+      lanczos:  { label: "Lanczos", description: "Sharpest, strongest ringing near bright pixels." }
+
+  orbit_reference_frame:
+    label: "Orbit reference frame"
+    tags: [method]
+    rationale: >-
+      Each galaxy already sits at its own arbitrary position angle on the
+      sky, recorded in paDeg at full coverage. Leaving that in means
+      every galaxy's orbit is sampled from a different starting phase,
+      so orbits cannot be averaged or compared across galaxies without
+      first aligning their phases. De-rotating to a canonical angle
+      first makes orbits directly stackable, but bakes a catalogue
+      measurement into the experiment.
+    default: sky_frame
+    options:
+      sky_frame:
+        label: "Native sky frame"
+        description: >-
+          Rotate from the image as observed. Phases must be aligned
+          afterwards, in analysis, before orbits are compared.
+      canonical_pa:
+        label: "De-rotate to canonical PA"
+        description: >-
+          Rotate each galaxy by -paDeg first so its major axis is
+          horizontal, then apply the angle grid. Orbits share a phase
+          origin by construction; results now depend on the catalogue's
+          position angles being correct.
+
+  id_estimator:
+    label: "Intrinsic dimension estimator"
+    tags: [method]
+    rationale: >-
+      The single most consequential choice in goal 2. Linear estimators
+      count directions of variance and so report the dimension of the
+      smallest linear subspace containing the data, which overstates the
+      dimension of any curved manifold. A rotation orbit is a closed
+      curve, maximally curved, so the linear and nearest-neighbour
+      answers are expected to disagree sharply here by construction.
+    default: twonn
+    options:
+      twonn:
+        label: "TwoNN"
+        description: >-
+          Nearest-neighbour distance-ratio estimator. Valid on curved,
+          topologically non-trivial, non-uniformly sampled manifolds,
+          which is the regime this analysis is in. Carries a known
+          caveat: above roughly ID 20 it underestimates, so a large
+          full-cloud value must be reported as a lower bound.
+        insights: [twonn_curvature_density_robustness, twonn_works_on_curved_manifolds, finite_sample_underestimation_caveat, headline_id_orders_of_magnitude_smaller, last_layer_id_range_vs_embedding_dim]
+      mle_levina_bickel:
+        label: "MLE (Levina-Bickel)"
+        description: >-
+          Maximum-likelihood neighbourhood estimator using k neighbours.
+          A second nearest-neighbour estimator with different bias, so
+          agreement with TwoNN is meaningful evidence.
+      pca_participation_ratio:
+        label: "PCA participation ratio"
+        insights: [pca_overestimates_id_on_curved_manifolds]
+        description: >-
+          Linear: effective number of principal components from the
+          eigenvalue spectrum. Reported as a contrast, not as the
+          headline; on a curved manifold it measures the ambient linear
+          subspace, not the manifold.
+
+  id_scale_selection:
+    label: "ID stability diagnostic"
+    tags: [stats]
+    rationale: >-
+      A nearest-neighbour ID estimate depends on the neighbourhood scale
+      it is evaluated at, and quoting a single number without showing it
+      is stable is how ID estimates mislead. This decision fixes how the
+      reported value is defended.
+    default: block_analysis
+    options:
+      full_sample:
+        label: "Full sample, single estimate"
+        description: "One number over all points. Simplest; no stability evidence."
+      block_analysis:
+        label: "Block analysis"
+        insights: [scale_invariance_diagnostic, id_should_be_weakly_dependent_on_n, subsampling_stability_check]
+        description: >-
+          Re-estimate on nested random subsets of decreasing size and
+          report the plateau. Directly exposes whether the estimate is
+          sample-size limited, which matters because the orbit subsample
+          is small.
+      discard_far_pairs:
+        label: "Discard largest distances"
+        description: >-
+          Drop a fixed fraction of the largest neighbour distances before
+          estimating, reducing sensitivity to the manifold's global
+          curvature at the cost of an added tuning parameter.
+
+  quotient_operator:
+    label: "Rotation quotient operator"
+    tags: [method]
+    rationale: >-
+      Defines what "removing rotation" actually means, and therefore what
+      the headline residual dimensionality is a dimensionality of. The
+      options differ in how aggressive they are: averaging over the orbit
+      is the mildest and keeps everything rotation cannot change, while
+      deflating the orbit-variation subspace also removes directions that
+      merely correlate with orientation and may carry real structure.
+    default: orbit_mean
+    options:
+      orbit_mean:
+        label: "Orbit mean"
+        description: >-
+          Represent each galaxy by the mean of its embedding over all
+          angles. The simplest rotation-invariant summary; exactly the
+          zeroth angular harmonic.
+      harmonic_magnitudes:
+        label: "Harmonic magnitudes"
+        description: >-
+          Keep the zeroth harmonic plus the magnitudes of higher
+          harmonics, discarding their phases. Rotation-invariant but
+          retains angular structure the plain mean throws away, so the
+          residual dimension should be higher.
+      pca_deflation:
+        label: "Deflate orbit-variation subspace"
+        description: >-
+          Pool the within-orbit variation across galaxies, take its
+          leading principal directions, and project them out of the full
+          cloud. The most aggressive option; risks removing genuine
+          structure that happens to align with orientation.
+
+  sr_reduction:
+    label: "Pre-SR dimensionality reduction"
+    tags: [preprocessing]
+    rationale: >-
+      Symbolic regression cannot search over 1024 input variables; the
+      space of expressions explodes and nothing interpretable is
+      recovered. Some compression to a handful of coordinates is
+      mandatory, and which compression is used determines what the
+      resulting expressions are expressions in.
+    default: pca
+    options:
+      pca:
+        label: "PCA"
+        description: >-
+          Leading principal components of the quotiented cloud.
+          Well-understood, but each component is a dense mixture of all
+          1024 dimensions and so carries no intrinsic meaning.
+        insights: [sr_intractable_at_high_dimension, sr_select_reduced_dim_by_variance]
+      sparse_pca:
+        label: "Sparse PCA"
+        description: >-
+          Components constrained to load on few dimensions, so an
+          expression can be traced back to a small set of embedding
+          coordinates. Less variance captured per component.
+        insights: [sr_compact_representation_enables_sr, sr_dimension_constraint_needed_for_interpretable_messages]
+      probe_orthogonal:
+        label: "Probe-orthogonalised coordinates"
+        description: >-
+          Coordinates built from the linear probe directions, then
+          orthogonalised. Aligns the basis with known physics, but makes
+          any comparison against the linear probe partly circular, which
+          must be stated wherever the result is used.
+        insights: [sr_latent_basis_is_rotation_of_true_basis]
+
+  sr_n_coordinates:
+    label: "Number of SR coordinates"
+    tags: [method]
+    rationale: >-
+      Trades expressive reach against search tractability and against
+      overfitting. This should be informed by the measured quotient
+      dimensionality rather than picked freely: choosing far more
+      coordinates than the manifold has dimensions invites the search to
+      fit noise.
+    default: k8
+    options:
+      k4:   { label: "4 coordinates", description: "Tight search, highly interpretable expressions, likely underfits." }
+      k8:
+        label: "8 coordinates"
+        description: >-
+          The working choice, to be revisited against the measured
+          quotient dimensionality rather than fixed independently of it.
+        insights: [sr_select_reduced_dim_by_variance]
+      k16:  { label: "16 coordinates", description: "Broader reach; search cost and overfitting risk both rise sharply." }
+
+  sr_operator_set:
+    label: "SR operator set"
+    tags: [method]
+    rationale: >-
+      Determines which functional forms are reachable at all. A relation
+      that is exactly representable with one operator set may be
+      unreachable, or reachable only as a long approximation, with
+      another, so a negative result is only meaningful relative to the
+      set searched.
+    default: arithmetic_exp_log
+    options:
+      arithmetic:
+        label: "Arithmetic only"
+        description: "Plus, minus, times, divide. Most interpretable, least expressive."
+      arithmetic_exp_log:
+        label: "Arithmetic plus exp and log"
+        description: >-
+          Adds exp and log, which is what power-law and multiplicative
+          scaling relations between galaxy properties actually need.
+          Matches the operator set used in the reference symbolic-model
+          distillation work.
+        insights: [sr_operator_set_used]
+      arithmetic_exp_log_pow:
+        label: "Arithmetic, exp, log, powers"
+        description: >-
+          Adds general powers and square roots. Most expressive and most
+          prone to producing accurate but uninterpretable expressions.
+
+
+  sr_validation:
+    label: "Symbolic expression validation"
+    tags: [stats]
+    rationale: >-
+      A symbolic expression is fitted by a search that has already seen
+      the training data many times, so its training error is close to
+      meaningless. Beyond a held-out split, the reference work refits
+      free constants against the data a second time to avoid error
+      accumulated across successive fitting stages, which is a control
+      this analysis should either adopt or explicitly decline.
+    default: holdout_refit
+    options:
+      holdout_only:
+        label: "Held-out evaluation only"
+        description: >-
+          Score the selected expression on the held-out fold, constants
+          as returned by the search.
+      holdout_refit:
+        label: "Held-out plus constant refit"
+        description: >-
+          Refit the expression's free constants on the training fold
+          after the structural search has fixed the functional form,
+          then score on the held-out fold. Separates error in the form
+          from error in the coefficients.
+        insights: [sr_refit_constants_second_pass]
+      nested_cv:
+        label: "Nested cross-validation"
+        description: >-
+          Run the whole search inside each outer fold so that expression
+          selection never sees the evaluation data. The most honest and
+          by far the most expensive option.
+        insights: [sr_generalizes_better_than_source_model]
+
+  sr_complexity_selection:
+    label: "Pareto-front selection rule"
+    tags: [stats]
+    rationale: >-
+      Symbolic regression returns a front of expressions trading accuracy
+      against complexity, and picking one by eye is where the method
+      quietly becomes unfalsifiable. The rule must be fixed in advance.
+    default: best_score
+    options:
+      best_score:
+        label: "Best score"
+        description: >-
+          Select the expression maximising the fractional drop in error
+          per unit of added complexity relative to the next-simplest
+          candidate. An explicit, pre-registered Occam criterion rather
+          than a judgement call.
+        insights: [sr_complexity_selection_rule]
+      elbow:
+        label: "Elbow of the front"
+        description: "Largest curvature point on the accuracy-complexity curve."
+        insights: [sr_complexity_selection_rule]
+      max_complexity:
+        label: "Most accurate within budget"
+        description: >-
+          Take the most accurate expression at or below a fixed
+          complexity ceiling. Prioritises fit over parsimony.
+
+prior_insights:
+
+  twonn_curvature_density_robustness:
+    id: twonn_curvature_density_robustness
+    label: "TwoNN tolerates curvature and density variation"
+    claim: "TwoNN estimates intrinsic dimension from the ratio of second- to first-nearest-neighbour distances, which overcomes problems caused by curvature of the embedding manifold and by local variation in data density, relying only on the weak assumption that density is locally constant at the scale of each point's second nearest neighbour."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Global ID estimation of neural-network layer representations; the locality assumption should hold for embedding-space point clouds generally."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "This allows overcoming the problems related to the curvature of the embedding manifold and to the local variations in the density of the data points, under the weak assumption that the density is constant on the scale of the distance between each point and its second nearest neighbor."
+        location: { value: "page=3", page: 3 }
+
+  twonn_works_on_curved_manifolds:
+    id: twonn_works_on_curved_manifolds
+    label: "TwoNN works on curved manifolds"
+    claim: "TwoNN's advantage over linear methods is that it infers intrinsic dimension correctly even when the data lie on curved, non-linear manifolds rather than flat subspaces. A rotation orbit is a closed curve and therefore maximally in this regime."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "The strength of the TwoNN method lies in its ability to infer the ID of data representations, even if they lie on curved manifolds."
+        location: { value: "page=7", page: 7 }
+
+  pca_overestimates_id_on_curved_manifolds:
+    id: pca_overestimates_id_on_curved_manifolds
+    label: "PCA overestimates ID by one to two orders of magnitude"
+    claim: "Linear PCA-based dimensionality, taken as the number of components explaining 90 percent of variance, was found to be about one or two orders of magnitude larger than TwoNN's estimate on the same representations, because it cannot detect non-linear structure. A PCA-based number here is therefore a contrast, not a competing estimate."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "We found PC-ID to be about one or two orders of magnitude larger than the value of the ID computed with TwoNN."
+        location: { value: "page=7", page: 7 }
+
+  scale_invariance_diagnostic:
+    id: scale_invariance_diagnostic
+    label: "ID depends on the distance scale"
+    claim: "For real-world data the intrinsic dimension always depends on the distance scale the analysis is performed at, so an ID estimate is not meaningful without an accompanying demonstration that it is stable across scales."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "For real-world data, the intrinsic dimension always depends on the scale of distances on which the analysis is performed."
+        location: { value: "page=3", page: 3 }
+
+  id_should_be_weakly_dependent_on_n:
+    id: id_should_be_weakly_dependent_on_n
+    label: "A well-defined ID barely moves with N"
+    claim: "If the intrinsic dimension is well defined, its estimated value depends only weakly on the number of data points. Re-estimating on progressively decimated subsets and checking for drift is therefore the diagnostic that distinguishes a genuine manifold property from a sampling artefact."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "if the ID is well-defined, its estimated value will only depend weakly on the number of data points N."
+        location: { value: "page=3", page: 3 }
+
+  subsampling_stability_check:
+    id: subsampling_stability_check
+    label: "Subsampling validates sample-size adequacy"
+    claim: "The authors addressed the concern that their sample might be too small by repeating the estimate on random subsamples of the data manifold, finding the estimated IDs stable across a wide range of sample sizes. This is the concrete procedure for defending an ID computed on a small sample."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "we repeated the analysis on subsamples randomly chosen on the data manifold"
+        location: { value: "page=4", page: 4 }
+
+  id_accurate_for_small_true_id_finite_n:
+    id: id_accurate_for_small_true_id_finite_n
+    label: "Accurate below ID about 20"
+    claim: "For a finite number of data points the estimated ID remains very close to ground truth as long as the true ID is below roughly 20. This is the regime a single rotation orbit and a quotiented manifold are expected to sit in, so a modest subsample is defensible there."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Applies where the true or expected ID is below about 20."
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "For a finite number of data points, the estimated values remain very close to the ground truth ID, when this is smaller than"
+        location: { value: "page=3", page: 3 }
+
+  finite_sample_underestimation_caveat:
+    id: finite_sample_underestimation_caveat
+    label: "Above ID about 20 the estimate is a lower bound"
+    claim: "At finite sample size the approach moderately underestimates the true dimension once it exceeds roughly 20, especially where density is non-uniform. Any ID reported above that threshold must be stated as a lower bound rather than an estimate."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Applies where the estimated or true ID exceeds roughly 20, which is plausible for the full unquotiented embedding cloud."
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "the approach moderately underestimates the correct value, especially if the density of data is non-uniform."
+        location: { value: "page=3", page: 3 }
+
+  headline_id_orders_of_magnitude_smaller:
+    id: headline_id_orders_of_magnitude_smaller
+    label: "ID is orders of magnitude below layer width"
+    claim: "In trained networks the intrinsic dimension of a layer's representation is orders of magnitude smaller than the number of units in that layer. This calibrates what counts as an ordinary rather than a surprising result for a 1024-dimensional embedding."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "We find that, in a trained network, the ID is orders of magnitude smaller than the number of units in each layer."
+        location: { value: "page=1", page: 1 }
+
+  last_layer_id_range_vs_embedding_dim:
+    id: last_layer_id_range_vs_embedding_dim
+    label: "Last-layer IDs cluster around 12 to 25"
+    claim: "In the last hidden layer of several trained image CNNs, ID values fell in a narrow band of roughly 12 to 25 despite embedding dimensions one to two orders of magnitude larger. This is the concrete numerical benchmark against which the full-cloud ID measured here should be read."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Final-layer representations of image-classification CNNs with 512 to 4096 units. Used here only as an order-of-magnitude reference point for a 1024-dimensional embedding, not as a prediction."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1905.12784"
+        version: 1
+        quote:
+          exact: "This revealed a spread of ID values, ranging between"
+        location: { value: "page=5", page: 5 }
+
+  sr_intractable_at_high_dimension:
+    id: sr_intractable_at_high_dimension
+    label: "SR does not scale to raw dimensions"
+    claim: "Symbolic regression search scales exponentially with the number of input variables and operators, making it intractable directly on high-dimensional inputs such as a 1024-dimensional embedding. Compressing to a small set of coordinates first is a prerequisite, not an optimisation."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "Many machine learning problems are thus intractable for traditional symbolic regression."
+          prefix: "which scale exponentially with the number of input variables and operators. "
+          suffix: " On the other hand, deep learning methods allow efficient training"
+        location: { value: "page=1", page: 1 }
+
+  sr_two_particle_tractability:
+    id: sr_two_particle_tractability
+    label: "Fit SR to a low-dimensional internal function"
+    claim: "Fitting symbolic regression to a low-dimensional internal function of a trained model, rather than to the full high-dimensional problem, is what keeps the search tractable: the search never has to consider more than a small local sub-problem."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Stated for a graph-network message function, but the general principle of reducing the arity of the function handed to SR generalises to any pipeline that compresses a representation first."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "A key advantage of fitting a symbolic model on internal GN functions is that the symbolic regression never needs to consider more than two particles at once. This makes the symbolic regression problem tractable."
+        location: { value: "page=4", page: 4 }
+
+  sr_compact_representation_enables_sr:
+    id: sr_compact_representation_enables_sr
+    label: "Compact representations enable SR"
+    claim: "Reducing the size of the latent representation lets low-variance latent features be filtered out without compromising predictive accuracy, and that dimensionality reduction is what makes symbolic regression of the internal model tractable."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [preprocessing]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "By reducing the size of the latent representations, we can filter out all low-variance latent features without compromising the accuracy of the model, and vastly reducing the dimensionality of the hidden vectors. This makes the symbolic regression of the internal models more tractable."
+        location: { value: "page=4", page: 4 }
+
+  sr_select_reduced_dim_by_variance:
+    id: sr_select_reduced_dim_by_variance
+    label: "Pick as many coordinates as the system has dimensions"
+    claim: "The reduced coordinates handed to symbolic regression are chosen as the D highest-variance latent components, where D is the known or estimated dimensionality of the underlying system. The number of SR inputs should therefore follow from a dimensionality estimate rather than being fixed independently."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Applies when the intrinsic dimensionality is known a priori or estimated, which is precisely what intrinsic_dim_quotient provides here."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "we pick the D message features (where D is the dimensionality of the simulation) with the highest variance (or KL divergence), and fit each to a linear combination of the true force components."
+        location: { value: "page=6", page: 6 }
+
+  sr_operator_set_used:
+    id: sr_operator_set_used
+    label: "Reference operator set"
+    claim: "The reference symbolic-model distillation work searches over a bounded operator set comprising arithmetic, comparison, power, exponential, logarithm, a conditional, and real constants, rather than an unrestricted operator library."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "The operators considered in the fitting process are +, −, ×, /, >, <, ^, exp, log, IF(·, ·, ·) as well as real constants."
+        location: { value: "page=3", page: 3 }
+
+  sr_complexity_selection_rule:
+    id: sr_complexity_selection_rule
+    label: "Pareto selection by error drop per complexity"
+    claim: "Rather than picking an arbitrary point on the accuracy-versus-complexity front, select the expression maximising the fractional drop in mean absolute error over the increase in complexity relative to the next best model. This gives a pre-registered, non-arbitrary selection rule."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "select the fit that maximizes the fractional drop in mean absolute error (MAE) over the increase in complexity from the next best model"
+        location: { value: "page=7", page: 7 }
+
+  sr_refit_constants_second_pass:
+    id: sr_refit_constants_second_pass
+    label: "Refit constants after the structural search"
+    claim: "After the symbolic search has fixed the functional form, free constants should be refitted against the data a second time, to avoid error accumulated across successive stages of function fitting."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "We then refit any parameters in the symbolic model to the data a second time, to avoid the accumulated approximation error."
+        location: { value: "page=3", page: 3 }
+
+  sr_generalizes_better_than_source_model:
+    id: sr_generalizes_better_than_source_model
+    label: "Distilled expressions can beat their source model"
+    claim: "On an out-of-distribution test, a symbolic expression distilled from a neural network generalised better than the network it was extracted from. A compact symbolic fit can therefore outperform the model it came from under distributional shift, which is a reason to evaluate it on genuinely held-out data rather than assume it merely approximates the source."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "A single cosmology case study with an 80/20 in-distribution versus out-of-distribution split, presented as an encouraging example rather than a general guarantee."
+    tags: [stats]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "it seems a symbolic expression generalizes much better than the very graph neural network it was extracted from."
+        location: { value: "page=9", page: 9 }
+
+  sr_latent_basis_is_rotation_of_true_basis:
+    id: sr_latent_basis_is_rotation_of_true_basis
+    label: "The latent basis is arbitrary up to rotation"
+    claim: "When a compact latent space matches the dimensionality of the underlying law, the learned latent vectors are expected to be mathematical rotations of the true variables rather than the variables themselves. The recovered basis is arbitrary up to rotation and may need aligning before symbolic expressions map onto interpretable quantities."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    scope: "Assumes the compact latent space has the same dimensionality as the true underlying linear latent space. Directly relevant here, since PCA coordinates of the quotiented cloud carry no privileged basis."
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "will be mathematical rotations of the true vectors."
+        location: { value: "page=4", page: 4 }
+
+  sr_dimension_constraint_needed_for_interpretable_messages:
+    id: sr_dimension_constraint_needed_for_interpretable_messages
+    label: "Compression is required for alignment"
+    claim: "Only when the effective latent dimensionality is explicitly or implicitly constrained to be low do latent components become recoverable as linear combinations of the true underlying variables. An unconstrained high-dimensional latent space shows no such correlation, so compression is a prerequisite for the coordinates to align with anything meaningful."
+    created_at: "2026-09-02T12:00:00"
+    derived: false
+    tags: [method]
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.2006.11287"
+        version: 1
+        quote:
+          exact: "yield messages that are highly correlated with the true forces"
+        location: { value: "page=6", page: 6 }
+
+outputs:
+  - id: rotation_orbit_embeddings
+    type: data
+    format: npy
+    label: "Rotation-orbit embeddings"
+    description: >-
+      Embeddings of a subsample of anchor galaxies re-encoded at a grid
+      of position angles, shape (n_galaxies, n_angles, 1024). Produced
+      with the shipped recipe — 600-token budget, mean pooling — so the
+      vectors are comparable to every other embedding in the project.
+      Subsampled deliberately: this is the only GPU-bound step and it has
+      to finish on a 6 GB laptop card.
+    inputs: [anchor_images, anchor_catalogue]
+    decisions: [real_quality_cuts, orbit_subsample, angle_grid, rotation_interpolation, orbit_reference_frame]
+    recipe:
+      command: >-
+        python src/manifold/encode_orbits.py --images {inputs.anchor_images} --cat
+        {inputs.anchor_catalogue} --real-quality-cuts
+        {decisions.real_quality_cuts} --orbit-subsample
+        {decisions.orbit_subsample} --angle-grid {decisions.angle_grid}
+        --rotation-interpolation {decisions.rotation_interpolation}
+        --orbit-reference-frame {decisions.orbit_reference_frame} --out {output}
+      resources: { gpus: 1, memory: "16GB", time_limit: "6h" }
+
+  - id: orbit_fourier_spectrum
+    type: table
+    format: csv
+    label: "Orbit harmonic content"
+    description: >-
+      Power per angular harmonic of the embedding as a function of
+      rotation angle, per galaxy and averaged. Answers whether the orbit
+      is genuinely a circle (power concentrated at one harmonic) or
+      something with richer angular structure.
+    inputs: [rotation_orbit_embeddings]
+    decisions: [embedding_preprocessing]
+    recipe:
+      command: >-
+        python src/manifold/orbit_spectrum.py --orbits
+        {inputs.rotation_orbit_embeddings} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --out {output}
+
+  - id: intrinsic_dim_full
+    type: metric
+    format: json
+    label: "ID of the full cloud"
+    description: >-
+      Intrinsic dimensionality of the 10,000-galaxy anchor embedding
+      cloud as shipped — one fixed, arbitrary orientation per galaxy.
+    inputs: [anchor_embeddings, anchor_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, id_estimator, id_scale_selection]
+    recipe:
+      command: >-
+        python src/manifold/intrinsic_dim.py --emb {inputs.anchor_embeddings}
+        --cat {inputs.anchor_catalogue}
+        --mode full --embedding-preprocessing {decisions.embedding_preprocessing}
+        --real-quality-cuts {decisions.real_quality_cuts} --id-estimator
+        {decisions.id_estimator} --id-scale-selection
+        {decisions.id_scale_selection} --out {output}
+
+  - id: intrinsic_dim_orbit
+    type: metric
+    format: json
+    label: "ID of a single orbit"
+    description: >-
+      Intrinsic dimensionality of the set of embeddings traced by one
+      galaxy as it rotates, averaged over the subsample. This is the
+      dimensionality attributable purely to orientation.
+    inputs: [rotation_orbit_embeddings]
+    decisions: [embedding_preprocessing, id_estimator, id_scale_selection]
+    recipe:
+      command: >-
+        python src/manifold/intrinsic_dim.py --orbits
+        {inputs.rotation_orbit_embeddings} --mode orbit --embedding-preprocessing
+        {decisions.embedding_preprocessing} --id-estimator
+        {decisions.id_estimator} --id-scale-selection
+        {decisions.id_scale_selection} --out {output}
+
+  - id: intrinsic_dim_quotient
+    type: metric
+    format: json
+    label: "ID after quotienting rotation"
+    description: >-
+      Intrinsic dimensionality of the cloud after the rotation degree of
+      freedom is quotiented out. The headline number for goal 2: what is
+      left once orientation is not allowed to count.
+    inputs: [rotation_orbit_embeddings, anchor_embeddings, anchor_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, id_estimator, id_scale_selection, quotient_operator]
+    recipe:
+      command: >-
+        python src/manifold/intrinsic_dim.py --orbits
+        {inputs.rotation_orbit_embeddings} --emb {inputs.anchor_embeddings}
+        --cat {inputs.anchor_catalogue} --mode
+        quotient --embedding-preprocessing {decisions.embedding_preprocessing}
+        --real-quality-cuts {decisions.real_quality_cuts} --id-estimator
+        {decisions.id_estimator} --id-scale-selection
+        {decisions.id_scale_selection} --quotient-operator
+        {decisions.quotient_operator} --out {output}
+
+  - id: intrinsic_dim_matched
+    type: metric
+    format: json
+    label: "Full vs quotient ID at matched sample size"
+    description: >-
+      The full-cloud dimensionality re-estimated on random subsamples the same
+      size as the quotient cloud, so the two are compared at equal n. TwoNN is
+      sample-size dependent and the full cloud carries an order of magnitude
+      more points than the quotient, so the difference between their headline
+      values mixes the effect of the quotient with the estimator's own
+      finite-sample drift. This output separates the two and reports the
+      dimensionality the quotient actually removes.
+    inputs: [rotation_orbit_embeddings, anchor_embeddings, anchor_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, id_estimator, quotient_operator]
+    recipe:
+      command: >-
+        python src/manifold/intrinsic_dim.py --orbits
+        {inputs.rotation_orbit_embeddings} --emb {inputs.anchor_embeddings}
+        --cat {inputs.anchor_catalogue} --mode
+        matched --embedding-preprocessing {decisions.embedding_preprocessing}
+        --real-quality-cuts {decisions.real_quality_cuts} --id-estimator
+        {decisions.id_estimator} --quotient-operator
+        {decisions.quotient_operator} --out {output}
+
+  - id: exact_rotation_control
+    type: table
+    format: csv
+    label: "Exact-rotation control on the harmonic signal"
+    description: >-
+      Splits the orbit into sub-orbits of four frames spaced 90 degrees apart.
+      One of them lands on exact multiples of 90 degrees, which the encoder
+      pipeline rotates by index permutation rather than interpolation; the rest
+      are resampled by the declared kernel. All sample the same geometry, so
+      comparing their rotation-varying power separates angular structure the
+      encoder genuinely sees from structure the interpolator manufactured at
+      the pixel grid's own 4-fold symmetry.
+    inputs: [rotation_orbit_embeddings]
+    decisions: [embedding_preprocessing, rotation_interpolation]
+    recipe:
+      command: >-
+        python src/manifold/exact_rotation_control.py --orbits
+        {inputs.rotation_orbit_embeddings} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --rotation-interpolation
+        {decisions.rotation_interpolation} --out {output}
+
+  - id: parity_control
+    type: table
+    format: csv
+    label: "Reflection: is chirality encoded?"
+    description: >-
+      Re-encodes each orbit galaxy mirrored and asks whether the mirrored
+      embedding lands on that galaxy's own rotation orbit. Reflection and
+      rotation are entangled for two-fold symmetric shapes, so a raw
+      mirror-to-original distance proves nothing; the geometric question is
+      whether reflection is absorbed by rotation. The distance is reported
+      against two floors — the angle grid's own sampling resolution and the
+      pipeline's re-encoding noise — so "on the orbit" has a scale. A mirror
+      flip is an exact index reversal, so like the 90-degree rotations it adds
+      no resampling of its own.
+    inputs: [anchor_images, rotation_orbit_embeddings]
+    decisions: [embedding_preprocessing]
+    recipe:
+      command: >-
+        python src/manifold/parity_control.py --images {inputs.anchor_images}
+        --orbits {inputs.rotation_orbit_embeddings} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --out {output}
+      resources:
+        gpus: 1
+        memory: 16GB
+        time_limit: 1h
+
+  - id: property_invariance
+    type: table
+    format: csv
+    label: "Do orientation-free properties stay still?"
+    description: >-
+      Spread of each probe's prediction across one galaxy's rotation orbit,
+      for properties that have no orientation: stellar mass, star formation,
+      age, metallicity, redshift and morphological class. Reported against the
+      probe's own out-of-fold residual and against the population spread of
+      the target, so the number says whether rotation is a nuisance worth
+      worrying about rather than merely non-zero. Morphology probes are fitted
+      on gzArm and applied to the anchor orbits, which measures the stability
+      of the fitted function rather than its accuracy.
+    inputs: [rotation_orbit_embeddings, anchor_embeddings, anchor_catalogue, gzarm_embeddings, gzarm_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, eval_split, target_transform, probe_model, probe_regularization, morphology_label_form]
+    recipe:
+      command: >-
+        python src/manifold/property_invariance.py --orbits
+        {inputs.rotation_orbit_embeddings} --emb {inputs.anchor_embeddings}
+        --cat {inputs.anchor_catalogue} --gz-emb {inputs.gzarm_embeddings}
+        --gz-cat {inputs.gzarm_catalogue} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --real-quality-cuts
+        {decisions.real_quality_cuts} --eval-split {decisions.eval_split}
+        --target-transform {decisions.target_transform} --probe-model
+        {decisions.probe_model} --probe-regularization
+        {decisions.probe_regularization} --morphology-label-form
+        {decisions.morphology_label_form} --out {output}
+
+  - id: symmetry_transfer
+    type: table
+    format: csv
+    label: "Symmetry under exact transforms, real and simulated"
+    description: >-
+      Applies identity, mirror, 90 and 180 degree rotations to both real and
+      simulated galaxies, plus a 30 degree rotation on the real side only, and
+      asks two things: whether an orientation readout fitted on real rotation
+      orbits still tracks rotation on ASTRID galaxies the model has never seen,
+      and how far each transform moves the embedding relative to the typical
+      distance between two different galaxies. The exact transforms are index
+      permutations that resample nothing, so any real-versus-simulated
+      difference cannot be blamed on interpolation; the 30 degree rotation is
+      the resampled contrast, available only on the 160px real cutouts because
+      a 96px simulated cutout has no margin to spare.
+    inputs: [anchor_images, astrid_images, astrid_catalogue, rotation_orbit_embeddings]
+    decisions: [embedding_preprocessing, rotation_interpolation, sim_quality_cuts]
+    recipe:
+      command: >-
+        python src/manifold/symmetry_transfer.py --real-images
+        {inputs.anchor_images} --sim-images {inputs.astrid_images} --sim-cat
+        {inputs.astrid_catalogue} --orbits {inputs.rotation_orbit_embeddings}
+        --embedding-preprocessing {decisions.embedding_preprocessing}
+        --rotation-interpolation {decisions.rotation_interpolation}
+        --sim-quality-cuts {decisions.sim_quality_cuts} --out {output}
+      resources:
+        gpus: 1
+        memory: 16GB
+        time_limit: 2h
+
+  - id: id_comparison_plot
+    type: figure
+    format: pdf
+    label: "Dimensionality budget"
+    description: >-
+      Full, orbit and quotient dimensionalities side by side, with the
+      eigenvalue or neighbour-distance curves each estimate rests on, so
+      a reader can see whether the numbers reflect a real plateau or an
+      arbitrary cut.
+    inputs: [intrinsic_dim_full, intrinsic_dim_orbit, intrinsic_dim_quotient, orbit_fourier_spectrum]
+    recipe:
+      command: >-
+        python src/manifold/plot_dimensionality.py --inputs {inputs} --out
+        {output}
+
+  - id: symbolic_expressions
+    type: table
+    format: csv
+    label: "Symbolic expressions"
+    description: >-
+      Closed-form expressions relating a small set of rotation-quotiented
+      latent coordinates to physical properties, with each expression's
+      complexity and held-out accuracy. Symbolic regression cannot search
+      1024 raw dimensions, so this runs on a reduced coordinate set.
+    inputs: [rotation_orbit_embeddings, anchor_embeddings, anchor_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, eval_split, target_transform, quotient_operator, sr_reduction, sr_n_coordinates, sr_operator_set, sr_validation, sr_complexity_selection]
+    recipe:
+      command: >-
+        python src/manifold/symbolic_regression.py --orbits
+        {inputs.rotation_orbit_embeddings} --emb {inputs.anchor_embeddings} --cat
+        {inputs.anchor_catalogue} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --real-quality-cuts
+        {decisions.real_quality_cuts} --eval-split {decisions.eval_split}
+        --target-transform {decisions.target_transform} --quotient-operator
+        {decisions.quotient_operator} --sr-reduction {decisions.sr_reduction}
+        --sr-n-coordinates {decisions.sr_n_coordinates} --sr-operator-set
+        {decisions.sr_operator_set} --sr-validation {decisions.sr_validation}
+        --sr-complexity-selection {decisions.sr_complexity_selection} --out
+        {output}
+
+  - id: symbolic_complexity_curve
+    type: table
+    format: csv
+    label: "Accuracy vs number of terms"
+    description: >-
+      Held-out R2 at every complexity the symbolic search reached, rather than
+      only at the one expression the selection rule quotes. Answers how much
+      accuracy each additional term buys, and where the curve stops improving.
+      Carries two references at matched budget: ridge on the k leading
+      quotient coordinates, and ridge on the full conditioned embedding as a
+      ceiling. Complexity is node count; the number of distinct coordinates an
+      expression reads travels alongside as n_terms.
+    inputs: [rotation_orbit_embeddings, anchor_embeddings, anchor_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, eval_split, target_transform, quotient_operator, sr_reduction, sr_n_coordinates, sr_operator_set, sr_validation]
+    recipe:
+      command: >-
+        python src/manifold/symbolic_complexity_curve.py --orbits
+        {inputs.rotation_orbit_embeddings} --emb {inputs.anchor_embeddings} --cat
+        {inputs.anchor_catalogue} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --real-quality-cuts
+        {decisions.real_quality_cuts} --eval-split {decisions.eval_split}
+        --target-transform {decisions.target_transform} --quotient-operator
+        {decisions.quotient_operator} --sr-reduction {decisions.sr_reduction}
+        --sr-n-coordinates {decisions.sr_n_coordinates} --sr-operator-set
+        {decisions.sr_operator_set} --sr-validation {decisions.sr_validation}
+        --out {output}
+
+  - id: symbolic_complexity_plot
+    type: figure
+    format: pdf
+    label: "Accuracy vs complexity"
+    description: >-
+      The accuracy-complexity curve per target, with the matched-budget linear
+      reference and the full-embedding ceiling drawn alongside, so the reader
+      can see both where the symbolic form saturates and what the compression
+      costs.
+    inputs: [symbolic_complexity_curve]
+    recipe:
+      command: >-
+        python src/manifold/plot_complexity_curve.py --inputs {inputs} --out
+        {output}
+
+  - id: symbolic_vs_linear_r2
+    type: table
+    format: csv
+    label: "Symbolic vs linear skill"
+    description: >-
+      Held-out R² of the best symbolic expression against the linear
+      probe for the same target on the same split. Quantifies how much
+      of the embedding-to-property relationship is genuinely nonlinear
+      rather than an artefact of the probe being linear.
+    inputs: [symbolic_expressions, anchor_embeddings, anchor_catalogue]
+    decisions: [embedding_preprocessing, real_quality_cuts, eval_split, target_transform, probe_model, probe_regularization, sr_validation]
+    recipe:
+      command: >-
+        python src/manifold/symbolic_vs_linear.py --expr
+        {inputs.symbolic_expressions} --emb {inputs.anchor_embeddings} --cat
+        {inputs.anchor_catalogue} --embedding-preprocessing
+        {decisions.embedding_preprocessing} --real-quality-cuts
+        {decisions.real_quality_cuts} --eval-split {decisions.eval_split}
+        --target-transform {decisions.target_transform} --probe-model
+        {decisions.probe_model} --probe-regularization
+        {decisions.probe_regularization} --sr-validation {decisions.sr_validation}
+        --out {output}
+

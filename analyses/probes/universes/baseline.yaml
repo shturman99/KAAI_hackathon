@@ -1,0 +1,6 @@
+id: baseline
+description: Default configuration using standard practices
+decisions:
+  photometry_baseline_features: mags_colours
+  morphology_label_form: threshold_median
+  nuisance_feature_set: psf_depth_ebv
