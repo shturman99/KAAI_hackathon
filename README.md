@@ -170,8 +170,14 @@ transform-stability measurements where the question is how much a fitted readout
   come from the anchor sample, whose morphology columns are 1.9–3.2% covered;
   the labelled `gzArm` sample is a *different* set of galaxies and the two are
   never merged.
-- **512 galaxies, not 10,000**, for everything requiring re-encoding — a 6 GB
-  VRAM limit. This is what forced the sample-size correction in finding 5.
+- **512 galaxies, not 10,000**, for everything requiring re-encoding. This was a
+  GPU *time* limit, not a memory one: 6 GB of VRAM caps the batch (16 angles,
+  ~5.4 GB peak), while the galaxy count is set by throughput — 8,192 encodes
+  is ~20 min, where all 10,000 galaxies would be ~160,000 encodes. The n512
+  option was justified against Ansuini et al., who report that TwoNN stays
+  close to ground truth at finite n when the true ID is below ~20. Our own
+  measurement falsified that here: the same cloud gives 14.62 at n=8,058 and
+  12.68 at n=512. That drift is exactly what finding 5 corrects for.
 
 ## Team
 
